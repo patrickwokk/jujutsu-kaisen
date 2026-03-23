@@ -222,9 +222,9 @@
     overflow: hidden;
     transition: border-color 0.4s, box-shadow 0.4s;
   }
-  .result-card.glow-red  { border-color: var(--sukuna-red); box-shadow: 0 0 28px rgba(255,34,68,0.13); }
-  .result-card.glow-blue { border-color: var(--gojo-blue);  box-shadow: 0 0 28px rgba(0,200,255,0.12); }
-  .result-card.glow-pink { border-color: var(--nobara-pink);box-shadow: 0 0 28px rgba(255,110,180,0.1); }
+  .result-card.glow-red   { border-color: var(--sukuna-red); box-shadow: 0 0 28px rgba(255,34,68,0.13); }
+  .result-card.glow-blue  { border-color: var(--gojo-blue);  box-shadow: 0 0 28px rgba(0,200,255,0.12); }
+  .result-card.glow-green { border-color: #22cc88; box-shadow: 0 0 28px rgba(34,204,136,0.12); }
   .result-card::before {
     content: '';
     position: absolute;
@@ -343,23 +343,16 @@
 <script>
 // ─── Sign database ────────────────────────────────────────────────────────────
 const SIGNS = {
-  "Bird":    { kanji:"鳥", color:"glow-blue", desc:"Channels wind and lightning — swift cursed energy flow.", char:"gojo" },
-  "Boar":    { kanji:"亥", color:"glow-red",  desc:"Raw destructive force. Amplifies cursed energy output.", char:"sukuna" },
-  "Dog":     { kanji:"戌", color:"glow-pink", desc:"Loyal binding technique — creates cursed seals and barriers.", char:"nobara" },
-  "Dragon":  { kanji:"龍", color:"glow-blue", desc:"Ultimate domain expansion preparation. Channels massive cursed energy.", char:"gojo" },
-  "Hare":    { kanji:"卯", color:"glow-pink", desc:"Rapid-fire technique. Enhances speed of cursed energy projection.", char:"nobara" },
-  "Horse":   { kanji:"午", color:"glow-red",  desc:"Charging technique — concentrates cursed energy for explosive release.", char:"sukuna" },
-  "Monkey":  { kanji:"申", color:"glow-blue", desc:"Adaptable technique. Shifts cursed energy between hands fluidly.", char:"gojo" },
-  "Ox":      { kanji:"丑", color:"glow-red",  desc:"Immovable technique — grounds cursed energy for defensive barriers.", char:"sukuna" },
-  "Ram":     { kanji:"未", color:"glow-pink", desc:"Piercing straw doll technique — Kugisaki Nobara's signature.", char:"nobara" },
-  "Rat":     { kanji:"子", color:"glow-blue", desc:"Stealth technique. Conceals cursed energy signature entirely.", char:"gojo" },
-  "Serpent": { kanji:"蛇", color:"glow-red",  desc:"Binding vows and curses — creates lasting cursed seals.", char:"sukuna" },
-  "Tiger":   { kanji:"寅", color:"glow-red",  desc:"Ferocious strike — Sukuna's malevolent shrine activation.", char:"sukuna" },
+  "Gojo-Domain-Expansion":   { kanji:"無量空処", color:"glow-blue",  desc:"Unlimited Void — Gojo Satoru's domain expansion. Floods the target's mind with infinite information.", char:"gojo" },
+  "Sukuna-Domain-Expansion": { kanji:"伏魔御廚子", color:"glow-red",   desc:"Malevolent Shrine — Ryomen Sukuna's domain expansion. A buddhist shrine that slashes everything within range.", char:"sukuna" },
+  "Divine-Dogs":             { kanji:"玉犬",   color:"glow-green", desc:"Ten Shadows Technique — Divine Dogs. Twin shikigami wolves that track and destroy cursed spirits.", char:"megumi" },
+  "Nue":                     { kanji:"鵺",    color:"glow-green", desc:"Ten Shadows Technique — Nue. A winged shikigami that attacks with lightning from above.", char:"megumi" },
+  "Gama":                    { kanji:"蝦蟇",   color:"glow-green", desc:"Ten Shadows Technique — Gama Toad. A toad shikigami that can restrain and swallow cursed spirits.", char:"megumi" },
 };
 const CHAR_COLORS = {
   sukuna: ['#ff2244','#ff6644','#ffaa22'],
   gojo:   ['#00c8ff','#4488ff','#aaccff'],
-  nobara: ['#ff6eb4','#d4a017','#ff99cc'],
+  megumi: ['#22cc88','#44ddaa','#88ffcc'],
 };
 // ─── State ────────────────────────────────────────────────────────────────────
 const rfApiKey     = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
