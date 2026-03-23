@@ -16,12 +16,24 @@ Because inferencejs runs the model client-side using WebGL, there are no API cal
 - **Roboflow inferencejs** (via CDN) — WebGL-accelerated in-browser model inference
 - **Roboflow model** — `jujutsu-kaisen-hand-signs/1` (99.5% mAP, 99.8% precision, 100% recall, trained on 2,354 images)
 
+## Known Hand Signs
+
+The model recognizes the following five hand signs from the [trained dataset](https://universe.roboflow.com/jjk-doyjq/jujutsu-kaisen-hand-signs):
+
+| Hand Sign | Character | Technique |
+|-----------|-----------|-----------|
+| Gojo Domain Expansion | Gojo Satoru | Unlimited Void (無量空処) |
+| Sukuna Domain Expansion | Ryomen Sukuna | Malevolent Shrine (伏魔御廚子) |
+| Divine Dogs | Fushiguro Megumi | Ten Shadows Technique — Divine Dogs (玉犬) |
+| Nue | Fushiguro Megumi | Ten Shadows Technique — Nue (鵺) |
+| Gama | Fushiguro Megumi | Ten Shadows Technique — Gama Toad (蝦蟇) |
+
 ## Project Goals
 
 - [x] Real-time webcam hand detection using MediaPipe
 - [x] In-browser model inference using inferencejs
 - [ ] Anime-themed UI with cursed energy particle effects
-- [ ] Detect all JJK hand signs including Domain Expansion
+- [x] Detect JJK hand signs including Domain Expansion and Ten Shadows Technique
 - [ ] Vercel serverless proxy to hide API key in production (optional improvement)
 - [ ] Sequence detection — recognize multi-sign combos like Sukuna's Dismantle
 - [ ] Sound effects on sign detection
@@ -44,4 +56,4 @@ Because inferencejs runs the model client-side using WebGL, there are no API cal
 - API key input should be saved to localStorage so visitors only enter it once
 - The UI is dark-themed (near-black background), anime/JJK aesthetic with crimson and gold accents, Cinzel font for headings
 - Each detected sign should display its kanji character, English name, and a short lore description
-- Particle burst effects should fire on each new detection, color-coded by character (Sukuna = red, Gojo = blue, Nobara = pink)
+- Particle burst effects should fire on each new detection, color-coded by character (Sukuna = red, Gojo = blue, Megumi = green)
