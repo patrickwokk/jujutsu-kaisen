@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JJK Hand Sign Detector</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+JP:wght@400;700&display=swap');
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --crimson: #c0172b;
+    --gold: #d4a017;
+    --dark: #0a0608;
+    --darker: #060305;
+    --surface: #120c10;
+    --text: #f0e8d0;
+    --muted: #8a7a6a;
+    --gojo-blue: #00c8ff;
+    --sukuna-red: #ff2244;
+    --nobara-pink: #ff6eb4;
+  }
+  body {
+    background: var(--darker);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(192,23,43,0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,200,255,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(212,160,23,0.04) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+    width: 100%;
+  }
+  .title-kanji {
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--crimson);
+    margin-bottom: 4px;
+    opacity: 0.9;
+  }
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.4rem, 4vw, 2.2rem);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  h1 span { color: var(--crimson); }
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    margin-top: 6px;
+  }
+  .deco-line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    margin: 12px 0;
+  }
+  .deco-line::before, .deco-line::after {
+    content: '';
+    flex: 1;
+    max-width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--crimson), transparent);
+  }
+  .deco-diamond { width: 6px; height: 6px; background: var(--gold); transform: rotate(45deg); }
+  main {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 0 16px 40px;
+    width: 100%;
+    max-width: 620px;
+  }
+  /* ── Camera ── */
+  .camera-wrapper { position: relative; width: 100%; }
+  .camera-frame {
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4/3;
+  }
+  .camera-frame::before, .camera-frame::after {
+    content: '';
+    position: absolute;
+    width: 24px; height: 24px;
+    border-color: var(--crimson);
+    border-style: solid;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .camera-frame::before { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+  .camera-frame::after  { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
+  .corner-tr { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border: 2px solid var(--crimson); border-width: 2px 2px 0 0; z-index: 10; pointer-events: none; }
+  .corner-bl { position: absolute; bottom: 8px; left: 8px; width: 24px; height: 24px; border: 2px solid var(--crimson); border-width: 0 0 2px 2px; z-index: 10; pointer-events: none; }
+  video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: block;
+  }
+  canvas#landmarks {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    transform: scaleX(-1);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .status-pill {
+    position: absolute;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(192,23,43,0.3);
+    border-radius: 100px;
+    padding: 4px 14px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    z-index: 10;
+    white-space: nowrap;
+    transition: all 0.3s;
+  }
+  .status-pill.active  { border-color: var(--crimson); color: var(--crimson); }
+  .status-pill.detected { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 10px rgba(212,160,23,0.25); }
+  .status-pill.loading { border-color: var(--gojo-blue); color: var(--gojo-blue); }
+  /* loading bar under pill */
+  .model-load-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    z-index: 10;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .model-load-bar.show { opacity: 1; }
+  .model-load-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--crimson), var(--gold));
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  /* confidence strip */
+  .conf-strip {
+    position: absolute;
+    bottom: 14px; left: 14px; right: 14px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .conf-strip.show { opacity: 1; }
+  .conf-label {
+    font-size: 9px; letter-spacing: 0.2em; color: var(--muted);
+    margin-bottom: 4px;
+    display: flex; justify-content: space-between;
+  }
+  .conf-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .conf-fill  { height: 100%; background: linear-gradient(90deg, var(--crimson), var(--gold)); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+  /* ── API key panel ── */
+  .key-panel {
+    width: 100%;
+    background: rgba(212,160,23,0.04);
+    border: 1px solid rgba(212,160,23,0.18);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .key-panel strong { color: var(--gold); }
+  .key-panel a { color: var(--gojo-blue); }
+  .key-row { display: flex; gap: 8px; margin-top: 10px; }
+  .key-input {
+    flex: 1;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(212,160,23,0.25);
+    border-radius: 2px;
+    padding: 7px 10px;
+    font-size: 11px;
+    color: var(--text);
+    font-family: monospace;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .key-input:focus { border-color: var(--gold); }
+  .key-btn {
+    background: rgba(212,160,23,0.12);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 7px 16px;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 0.1em;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .key-btn:hover { background: rgba(212,160,23,0.22); }
+  /* ── Start button ── */
+  .start-btn {
+    background: var(--crimson);
+    color: #fff;
+    border: none;
+    padding: 12px 36px;
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+    text-transform: uppercase;
+  }
+  .start-btn:hover { background: #e01c33; box-shadow: 0 0 20px rgba(192,23,43,0.4); }
+  .start-btn:active { transform: scale(0.97); }
+  .start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  /* ── Result card ── */
+  .result-card {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid rgba(192,23,43,0.15);
+    border-radius: 4px;
+    padding: 20px 24px;
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  .result-card.glow-red  { border-color: var(--sukuna-red); box-shadow: 0 0 28px rgba(255,34,68,0.13); }
+  .result-card.glow-blue { border-color: var(--gojo-blue);  box-shadow: 0 0 28px rgba(0,200,255,0.12); }
+  .result-card.glow-pink { border-color: var(--nobara-pink);box-shadow: 0 0 28px rgba(255,110,180,0.1); }
+  .result-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.5s;
+    background: radial-gradient(ellipse at center, rgba(192,23,43,0.07) 0%, transparent 70%);
+  }
+  .result-card.active::before { opacity: 1; }
+  .idle-msg {
+    display: flex; flex-direction: column; align-items: center;
+    width: 100%; gap: 8px;
+  }
+  .idle-icon  { font-size: 28px; opacity: 0.25; }
+  .idle-text  { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; }
+  .sign-kanji {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 54px; font-weight: 700;
+    line-height: 1; min-width: 64px; text-align: center;
+    color: var(--text);
+    transition: all 0.4s;
+  }
+  .result-info { flex: 1; }
+  .result-tag  { font-size: 9px; letter-spacing: 0.3em; color: var(--crimson); margin-bottom: 6px; }
+  .result-name { font-family: 'Cinzel', serif; font-size: clamp(1rem, 3vw, 1.4rem); font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 6px; }
+  .result-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  /* ── Signs grid ── */
+  .signs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    gap: 7px;
+    width: 100%;
+  }
+  .sign-chip {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px; padding: 8px;
+    text-align: center; transition: border-color 0.2s, background 0.2s;
+  }
+  .sign-chip.lit { border-color: var(--gold); background: rgba(212,160,23,0.08); }
+  .sign-chip .chip-kanji { font-size: 20px; display: block; margin-bottom: 2px; }
+  .sign-chip .chip-name  { font-size: 9px; color: var(--muted); letter-spacing: 0.05em; }
+  /* ── Particles ── */
+  #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  /* ── Animations ── */
+  @keyframes flash-in {
+    0%   { opacity: 0; transform: scale(0.92); }
+    60%  { opacity: 1; transform: scale(1.03); }
+    100% { transform: scale(1); }
+  }
+  @keyframes pulse-kanji {
+    0%, 100% { filter: drop-shadow(0 0 5px rgba(212,160,23,0.25)); }
+    50%       { filter: drop-shadow(0 0 14px rgba(212,160,23,0.65)); }
+  }
+  .flash { animation: flash-in 0.35s ease-out; }
+  .result-card.active .sign-kanji { animation: pulse-kanji 2s infinite; }
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<header>
+  <div class="title-kanji">呪術廻戦 ・ 印相検出器</div>
+  <h1>JUJUTSU KAISEN<br><span>HAND SIGN DETECTOR</span></h1>
+  <div class="subtitle">CURSED ENERGY RECOGNITION SYSTEM · INFERENCEJS EDITION</div>
+  <div class="deco-line"><div class="deco-diamond"></div></div>
+</header>
+<main>
+  <!-- Camera -->
+  <div class="camera-wrapper">
+    <div class="camera-frame" id="cameraFrame">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="landmarks"></canvas>
+      <div class="scan-overlay"></div>
+      <div class="corner-tr"></div>
+      <div class="corner-bl"></div>
+      <div class="status-pill" id="statusPill">INACTIVE</div>
+      <div class="model-load-bar" id="loadBar">
+        <div class="model-load-fill" id="loadFill"></div>
+      </div>
+      <div class="conf-strip" id="confStrip">
+        <div class="conf-label">
+          <span>CURSED ENERGY RESONANCE</span>
+          <span id="confPct">0%</span>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- API key -->
+  <div class="key-panel" id="keyPanel">
+    <strong>⚙ ROBOFLOW PUBLISHABLE KEY</strong><br>
+    Uses <a href="https://docs.roboflow.com/inference/web-browser" target="_blank">inferencejs</a> — the model runs entirely in your browser via WebGL. Your key is only used once to load the model weights. Get a free key at <a href="https://app.roboflow.com/settings/api" target="_blank">roboflow.com</a>.
+    <div class="key-row">
+      <input class="key-input" id="keyInput" type="password" placeholder="rf_xxxxxxxxxxxxxxxxxxxx" />
+      <button class="key-btn" onclick="saveKey()">SAVE KEY</button>
+    </div>
+  </div>
+  <!-- Activate -->
+  <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="idle-msg" id="idleMsg">
+      <div class="idle-icon">🤲</div>
+      <div class="idle-text">AWAITING HAND SIGN INPUT</div>
+    </div>
+    <div id="resultContent" style="display:none; width:100%; align-items:center; gap:20px;">
+      <div class="sign-kanji" id="signKanji">—</div>
+      <div class="result-info">
+        <div class="result-tag">CURSED SIGN DETECTED</div>
+        <div class="result-name" id="signName">—</div>
+        <div class="result-desc" id="signDesc">—</div>
+      </div>
+    </div>
+  </div>
+  <!-- Signs reference -->
+  <div class="deco-line" style="width:100%;"><div class="deco-diamond"></div></div>
+  <div style="font-size:10px; letter-spacing:0.2em; color:var(--muted); width:100%;">KNOWN HAND SIGNS</div>
+  <div class="signs-grid" id="signsGrid"></div>
+</main>
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<!-- Roboflow inferencejs -->
+<script src="https://cdn.roboflow.com/0.2.26/roboflow.js"></script>
+<script>
+// ─── Sign database ────────────────────────────────────────────────────────────
+const SIGNS = {
+  "Bird":    { kanji:"鳥", color:"glow-blue", desc:"Channels wind and lightning — swift cursed energy flow.", char:"gojo" },
+  "Boar":    { kanji:"亥", color:"glow-red",  desc:"Raw destructive force. Amplifies cursed energy output.", char:"sukuna" },
+  "Dog":     { kanji:"戌", color:"glow-pink", desc:"Loyal binding technique — creates cursed seals and barriers.", char:"nobara" },
+  "Dragon":  { kanji:"龍", color:"glow-blue", desc:"Ultimate domain expansion preparation. Channels massive cursed energy.", char:"gojo" },
+  "Hare":    { kanji:"卯", color:"glow-pink", desc:"Rapid-fire technique. Enhances speed of cursed energy projection.", char:"nobara" },
+  "Horse":   { kanji:"午", color:"glow-red",  desc:"Charging technique — concentrates cursed energy for explosive release.", char:"sukuna" },
+  "Monkey":  { kanji:"申", color:"glow-blue", desc:"Adaptable technique. Shifts cursed energy between hands fluidly.", char:"gojo" },
+  "Ox":      { kanji:"丑", color:"glow-red",  desc:"Immovable technique — grounds cursed energy for defensive barriers.", char:"sukuna" },
+  "Ram":     { kanji:"未", color:"glow-pink", desc:"Piercing straw doll technique — Kugisaki Nobara's signature.", char:"nobara" },
+  "Rat":     { kanji:"子", color:"glow-blue", desc:"Stealth technique. Conceals cursed energy signature entirely.", char:"gojo" },
+  "Serpent": { kanji:"蛇", color:"glow-red",  desc:"Binding vows and curses — creates lasting cursed seals.", char:"sukuna" },
+  "Tiger":   { kanji:"寅", color:"glow-red",  desc:"Ferocious strike — Sukuna's malevolent shrine activation.", char:"sukuna" },
+};
+const CHAR_COLORS = {
+  sukuna: ['#ff2244','#ff6644','#ffaa22'],
+  gojo:   ['#00c8ff','#4488ff','#aaccff'],
+  nobara: ['#ff6eb4','#d4a017','#ff99cc'],
+};
+// ─── State ────────────────────────────────────────────────────────────────────
+let rfApiKey       = localStorage.getItem('rfKey') || '';
+let rfModel        = null;
+let mediaStream    = null;
+let mpHands        = null;
+let mpCamera       = null;
+let cameraActive   = false;
+let modelReady     = false;
+let detecting      = false;
+let lastClass      = null;
+let detectionTimer = null;
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.getElementById('keyInput').value = rfApiKey;
+buildSignsGrid();
+function buildSignsGrid() {
+  const grid = document.getElementById('signsGrid');
+  Object.entries(SIGNS).forEach(([name, d]) => {
+    const chip = document.createElement('div');
+    chip.className = 'sign-chip';
+    chip.id = 'chip-' + name;
+    chip.innerHTML = `<span class="chip-kanji">${d.kanji}</span><span class="chip-name">${name.toUpperCase()}</span>`;
+    grid.appendChild(chip);
+  });
+}
+function saveKey() {
+  rfApiKey = document.getElementById('keyInput').value.trim();
+  localStorage.setItem('rfKey', rfApiKey);
+  const btn = document.querySelector('.key-btn');
+  btn.textContent = 'SAVED ✓';
+  setTimeout(() => btn.textContent = 'SAVE KEY', 1500);
+}
+// ─── Activate ─────────────────────────────────────────────────────────────────
+async function activate() {
+  if (!rfApiKey) {
+    document.getElementById('keyInput').focus();
+    document.getElementById('keyInput').style.borderColor = 'var(--crimson)';
+    setTimeout(() => document.getElementById('keyInput').style.borderColor = '', 2000);
+    return;
+  }
+  const btn  = document.getElementById('startBtn');
+  const pill = document.getElementById('statusPill');
+  btn.disabled = true;
+  btn.textContent = 'INITIALIZING…';
+  // 1. Start webcam
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user', width:640, height:480 }, audio:false });
+    document.getElementById('video').srcObject = mediaStream;
+    await document.getElementById('video').play();
+  } catch(e) {
+    pill.textContent = 'CAMERA ACCESS DENIED';
+    btn.disabled = false;
+    btn.textContent = 'ACTIVATE CURSED VISION';
+    return;
+  }
+  cameraActive = true;
+  // 2. Load Roboflow model via inferencejs
+  pill.className = 'status-pill loading';
+  pill.textContent = 'LOADING MODEL…';
+  document.getElementById('loadBar').classList.add('show');
+  // Animate load bar (inferencejs doesn't give progress events, so fake a smooth fill)
+  let fakeProgress = 0;
+  const fakeInterval = setInterval(() => {
+    fakeProgress = Math.min(fakeProgress + Math.random() * 8, 90);
+    document.getElementById('loadFill').style.width = fakeProgress + '%';
+  }, 300);
+  try {
+    rfModel = await new Promise((resolve, reject) => {
+      roboflow.auth({ publishable_key: rfApiKey })
+        .load({
+          model: 'jujutsu-kaisen-hand-signs',
+          version: 1,
+          onLoadComplete: resolve,
+        })
+        .catch(reject);
+    });
+  } catch(e) {
+    clearInterval(fakeInterval);
+    pill.textContent = 'MODEL LOAD FAILED';
+    pill.className = 'status-pill';
+    document.getElementById('loadBar').classList.remove('show');
+    btn.disabled = false;
+    btn.textContent = 'ACTIVATE CURSED VISION';
+    console.error('inferencejs load error:', e);
+    return;
+  }
+  clearInterval(fakeInterval);
+  document.getElementById('loadFill').style.width = '100%';
+  setTimeout(() => document.getElementById('loadBar').classList.remove('show'), 600);
+  modelReady = true;
+  // 3. Start MediaPipe hand tracking
+  setupMediaPipe();
+  // 4. Start detection loop
+  startDetectionLoop();
+  startParticles();
+  pill.className = 'status-pill active';
+  pill.textContent = 'ACTIVE — SCANNING';
+  btn.disabled = false;
+  btn.textContent = 'DEACTIVATE';
+  btn.onclick = deactivate;
+}
+function deactivate() {
+  cameraActive = false;
+  modelReady   = false;
+  if (detectionTimer) clearTimeout(detectionTimer);
+  if (mpCamera) mpCamera.stop();
+  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+  rfModel = null;
+  lastClass = null;
+  document.getElementById('statusPill').className = 'status-pill';
+  document.getElementById('statusPill').textContent = 'INACTIVE';
+  document.getElementById('startBtn').textContent = 'ACTIVATE CURSED VISION';
+  document.getElementById('startBtn').onclick = activate;
+  showIdle();
+}
+// ─── MediaPipe hand landmarks ──────────────────────────────────────────────────
+function setupMediaPipe() {
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('landmarks');
+  const ctx    = canvas.getContext('2d');
+  const CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]
+  ];
+  mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  mpHands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.7, minTrackingConfidence:0.5 });
+  mpHands.onResults(results => {
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const pill = document.getElementById('statusPill');
+    if (results.multiHandLandmarks?.length) {
+      drawLandmarks(ctx, results.multiHandLandmarks[0], canvas.width, canvas.height, CONNECTIONS);
+      if (modelReady) {
+        pill.className   = 'status-pill detected';
+        pill.textContent = 'HAND DETECTED';
+      }
+    } else {
+      if (modelReady) {
+        pill.className   = 'status-pill active';
+        pill.textContent = 'ACTIVE — SCANNING';
+      }
+    }
+  });
+  mpCamera = new Camera(video, {
+    onFrame: async () => { if (mpHands && cameraActive) await mpHands.send({ image: video }); },
+    width: 640, height: 480
+  });
+  mpCamera.start();
+}
+function drawLandmarks(ctx, landmarks, w, h, connections) {
+  ctx.strokeStyle = 'rgba(212,160,23,0.55)';
+  ctx.lineWidth   = 1.5;
+  connections.forEach(([a, b]) => {
+    ctx.beginPath();
+    ctx.moveTo(landmarks[a].x * w, landmarks[a].y * h);
+    ctx.lineTo(landmarks[b].x * w, landmarks[b].y * h);
+    ctx.stroke();
+  });
+  landmarks.forEach((lm, i) => {
+    const tip = [4,8,12,16,20].includes(i);
+    ctx.beginPath();
+    ctx.arc(lm.x * w, lm.y * h, tip ? 5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = tip ? 'rgba(192,23,43,0.9)' : 'rgba(212,160,23,0.8)';
+    ctx.fill();
+  });
+}
+// ─── inferencejs detection loop ───────────────────────────────────────────────
+function startDetectionLoop() {
+  if (!cameraActive || !modelReady) return;
+  runDetection();
+}
+async function runDetection() {
+  if (!cameraActive || !modelReady || detecting) {
+    if (cameraActive) detectionTimer = setTimeout(runDetection, 800);
+    return;
+  }
+  const video = document.getElementById('video');
+  if (video.readyState < 2) {
+    detectionTimer = setTimeout(runDetection, 400);
+    return;
+  }
+  detecting = true;
+  try {
+    // inferencejs .detect() accepts an HTMLVideoElement directly
+    const predictions = await rfModel.detect(video);
+    handlePredictions(predictions);
+  } catch(e) {
+    console.warn('Detection error:', e);
+  }
+  detecting = false;
+  if (cameraActive) detectionTimer = setTimeout(runDetection, 800);
+}
+function handlePredictions(predictions) {
+  if (!predictions || predictions.length === 0) {
+    document.getElementById('confStrip').classList.remove('show');
+    return;
+  }
+  const best       = predictions.sort((a, b) => b.confidence - a.confidence)[0];
+  const confidence = Math.round(best.confidence * 100);
+  const className  = best.class;
+  // Confidence bar
+  document.getElementById('confStrip').classList.add('show');
+  document.getElementById('confFill').style.width = confidence + '%';
+  document.getElementById('confPct').textContent  = confidence + '%';
+  if (className !== lastClass && confidence >= 50) {
+    lastClass = className;
+    showDetection(className, confidence);
+    highlightChip(className);
+    const sign = SIGNS[className];
+    triggerBurst(sign ? sign.char : 'sukuna');
+  }
+}
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function showDetection(className, confidence) {
+  const sign  = SIGNS[className] || { kanji: className[0] || '印', color:'glow-red', desc:`${className} sign detected.`, char:'sukuna' };
+  const card  = document.getElementById('resultCard');
+  const idle  = document.getElementById('idleMsg');
+  const content = document.getElementById('resultContent');
+  idle.style.display    = 'none';
+  content.style.display = 'flex';
+  document.getElementById('signKanji').textContent = sign.kanji;
+  document.getElementById('signName').textContent  = className.toUpperCase();
+  document.getElementById('signDesc').textContent  = sign.desc;
+  card.className = 'result-card active ' + sign.color;
+  void card.offsetWidth;
+  card.classList.add('flash');
+  card.addEventListener('animationend', () => card.classList.remove('flash'), { once: true });
+}
+function showIdle() {
+  document.getElementById('idleMsg').style.display    = 'flex';
+  document.getElementById('resultContent').style.display = 'none';
+  document.getElementById('resultCard').className     = 'result-card';
+  document.getElementById('confStrip').classList.remove('show');
+  lastClass = null;
+}
+function highlightChip(name) {
+  document.querySelectorAll('.sign-chip').forEach(c => c.classList.remove('lit'));
+  const chip = document.getElementById('chip-' + name);
+  if (chip) { chip.classList.add('lit'); chip.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+}
+// ─── Particle system ──────────────────────────────────────────────────────────
+const pCanvas = document.getElementById('particles');
+const pCtx    = pCanvas.getContext('2d');
+let   particles = [];
+function startParticles() {
+  pCanvas.width  = window.innerWidth;
+  pCanvas.height = window.innerHeight;
+  window.addEventListener('resize', () => {
+    pCanvas.width  = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+  });
+  requestAnimationFrame(animParticles);
+}
+function triggerBurst(char) {
+  const colors = CHAR_COLORS[char] || CHAR_COLORS.sukuna;
+  for (let i = 0; i < 44; i++) {
+    const angle = (Math.PI * 2 * i / 44) + Math.random() * 0.2;
+    const speed = 1.5 + Math.random() * 4;
+    particles.push({
+      x: window.innerWidth / 2, y: window.innerHeight / 2,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      life: 1, decay: 0.012 + Math.random() * 0.014,
+      size: 2 + Math.random() * 3,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }
+}
+function animParticles() {
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.97; p.vy *= 0.97;
+    p.life -= p.decay;
+    pCtx.beginPath();
+    pCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    const alpha = Math.floor(p.life * 255).toString(16).padStart(2, '0');
+    pCtx.fillStyle = p.color + alpha;
+    pCtx.fill();
+  });
+  // Ambient rising sparks when camera is on
+  if (cameraActive && Math.random() < 0.12) {
+    particles.push({
+      x: Math.random() * window.innerWidth,
+      y: window.innerHeight + 5,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: -(0.3 + Math.random() * 0.7),
+      life: 0.6, decay: 0.005,
+      size: 1.2,
+      color: '#c0172b'
+    });
+  }
+  requestAnimationFrame(animParticles);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "jjk-hand-sign-detector",
+  "version": "1.0.0",
+  "description": "Real-time Jujutsu Kaisen hand sign detection using MediaPipe and Roboflow inferencejs",
+  "scripts": {
+    "dev": "npx serve . -p 3000 --cors",
+    "start": "npx serve . -p 3000 --cors"
+  },
+  "private": true
+}
