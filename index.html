@@ -190,46 +190,6 @@
   }
   .conf-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
   .conf-fill  { height: 100%; background: linear-gradient(90deg, var(--crimson), var(--gold)); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
-  /* ── API key panel ── */
-  .key-panel {
-    width: 100%;
-    background: rgba(212,160,23,0.04);
-    border: 1px solid rgba(212,160,23,0.18);
-    border-radius: 4px;
-    padding: 14px 16px;
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.6;
-  }
-  .key-panel strong { color: var(--gold); }
-  .key-panel a { color: var(--gojo-blue); }
-  .key-row { display: flex; gap: 8px; margin-top: 10px; }
-  .key-input {
-    flex: 1;
-    background: rgba(0,0,0,0.45);
-    border: 1px solid rgba(212,160,23,0.25);
-    border-radius: 2px;
-    padding: 7px 10px;
-    font-size: 11px;
-    color: var(--text);
-    font-family: monospace;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .key-input:focus { border-color: var(--gold); }
-  .key-btn {
-    background: rgba(212,160,23,0.12);
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    padding: 7px 16px;
-    font-size: 11px;
-    cursor: pointer;
-    border-radius: 2px;
-    letter-spacing: 0.1em;
-    transition: background 0.2s;
-    white-space: nowrap;
-  }
-  .key-btn:hover { background: rgba(212,160,23,0.22); }
   /* ── Start button ── */
   .start-btn {
     background: var(--crimson);
@@ -353,15 +313,6 @@
       </div>
     </div>
   </div>
-  <!-- API key -->
-  <div class="key-panel" id="keyPanel">
-    <strong>⚙ ROBOFLOW PUBLISHABLE KEY</strong><br>
-    Uses <a href="https://docs.roboflow.com/inference/web-browser" target="_blank">inferencejs</a> — the model runs entirely in your browser via WebGL. Your key is only used once to load the model weights. Get a free key at <a href="https://app.roboflow.com/settings/api" target="_blank">roboflow.com</a>.
-    <div class="key-row">
-      <input class="key-input" id="keyInput" type="password" placeholder="rf_xxxxxxxxxxxxxxxxxxxx" />
-      <button class="key-btn" onclick="saveKey()">SAVE KEY</button>
-    </div>
-  </div>
   <!-- Activate -->
   <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
   <!-- Result -->
@@ -411,7 +362,7 @@ const CHAR_COLORS = {
   nobara: ['#ff6eb4','#d4a017','#ff99cc'],
 };
 // ─── State ────────────────────────────────────────────────────────────────────
-let rfApiKey       = localStorage.getItem('rfKey') || '';
+const rfApiKey     = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
 let rfModel        = null;
 let mediaStream    = null;
 let mpHands        = null;
@@ -422,7 +373,6 @@ let detecting      = false;
 let lastClass      = null;
 let detectionTimer = null;
 // ─── Init ─────────────────────────────────────────────────────────────────────
-document.getElementById('keyInput').value = rfApiKey;
 buildSignsGrid();
 function buildSignsGrid() {
   const grid = document.getElementById('signsGrid');
@@ -434,21 +384,8 @@ function buildSignsGrid() {
     grid.appendChild(chip);
   });
 }
-function saveKey() {
-  rfApiKey = document.getElementById('keyInput').value.trim();
-  localStorage.setItem('rfKey', rfApiKey);
-  const btn = document.querySelector('.key-btn');
-  btn.textContent = 'SAVED ✓';
-  setTimeout(() => btn.textContent = 'SAVE KEY', 1500);
-}
 // ─── Activate ─────────────────────────────────────────────────────────────────
 async function activate() {
-  if (!rfApiKey) {
-    document.getElementById('keyInput').focus();
-    document.getElementById('keyInput').style.borderColor = 'var(--crimson)';
-    setTimeout(() => document.getElementById('keyInput').style.borderColor = '', 2000);
-    return;
-  }
   const btn  = document.getElementById('startBtn');
   const pill = document.getElementById('statusPill');
   btn.disabled = true;
