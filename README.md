@@ -1,59 +1,89 @@
 # Jujutsu Kaisen Hand Sign Detector
 
-A real-time, browser-based Jujutsu Kaisen hand sign recognition app. Point your webcam at your hand, pull a cursed technique sign, and the app identifies it instantly.
+A real-time, browser-based Jujutsu Kaisen hand sign recognition app. Point your webcam at your hands, form a cursed technique seal from the series, and the app identifies it instantly — hold a Domain Expansion seal to expand your domain.
 
 ## What This Project Does
 
 The app uses two technologies working in tandem:
-1. **MediaPipe Hands** — tracks landmarks on the user's hand in real time via webcam
-2. **Roboflow inferencejs** — loads the trained JJK hand sign model directly into the browser via WebGL and classifies the sign locally on the user's device
+1. **MediaPipe Hands** — tracks landmarks on both hands in real time via webcam (skeleton overlay)
+2. **Roboflow inferencejs** — loads the trained JJK hand sign model directly into the browser and classifies the sign locally on the user's device
 
-Because inferencejs runs the model client-side using WebGL, there are no API calls made per detection. The Roboflow API key is only used once on page load to pull down the model weights. After that, everything runs offline on the visitor's machine.
+Because inferencejs runs the model client-side (TensorFlow.js in a web worker), there are no API calls made per detection. The Roboflow publishable key is only used once on page load to pull down the model weights. After that, everything runs on the visitor's machine — no account or key entry needed.
 
 ## Tech Stack
 
-- **MediaPipe Hands** (via CDN) — real-time hand landmark detection and skeleton overlay
-- **Roboflow inferencejs** (via CDN) — WebGL-accelerated in-browser model inference
+- **MediaPipe Hands** (via CDN) — real-time two-hand landmark detection and skeleton overlay
+- **Roboflow inferencejs 1.2.3** (via CDN) — in-browser model inference (`InferenceEngine` + `CVImage`; the bundle is self-contained, TF.js included)
 - **Roboflow model** — `jujutsu-kaisen-hand-signs/1` (99.5% mAP, 99.8% precision, 100% recall, trained on 2,354 images)
+- **WebAudio** — synthesized sound effects, no audio assets
 
 ## Known Hand Signs
 
-The model recognizes the following five hand signs from the [trained dataset](https://universe.roboflow.com/jjk-doyjq/jujutsu-kaisen-hand-signs):
+The model recognizes the following five hand signs from the [trained dataset](https://universe.roboflow.com/jjk-doyjq/jujutsu-kaisen-hand-signs). All five are real seals from the series; kanji, romaji and lore are verified against the [Jujutsu Kaisen Wiki](https://jujutsu-kaisen.fandom.com/) and Japanese sources.
 
-| Hand Sign | Character | Technique |
-|-----------|-----------|-----------|
-| Gojo Domain Expansion | Gojo Satoru | Unlimited Void (無量空処) |
-| Sukuna Domain Expansion | Ryomen Sukuna | Malevolent Shrine (伏魔御廚子) |
-| Divine Dogs | Fushiguro Megumi | Ten Shadows Technique — Divine Dogs (玉犬) |
-| Nue | Fushiguro Megumi | Ten Shadows Technique — Nue (鵺) |
-| Gama | Fushiguro Megumi | Ten Shadows Technique — Gama Toad (蝦蟇) |
+| Model class | Technique | Kanji | Romaji | Character |
+|---|---|---|---|---|
+| `Gojo-Domain-Expansion` | Unlimited Void | 無量空処 | Muryōkūsho | Gojo Satoru |
+| `Sukuna-Domain-Expansion` | Malevolent Shrine | 伏魔御廚子 | Fukuma Mizushi | Ryomen Sukuna |
+| `Divine-Dogs` | Ten Shadows — Divine Dogs | 玉犬 | Gyokuken | Fushiguro Megumi |
+| `Nue` | Ten Shadows — Nue | 鵺 | Nue | Fushiguro Megumi |
+| `Gama` | Ten Shadows — Toad | 蝦蟇 | Gama | Fushiguro Megumi |
+
+### Special interactions (canon)
+
+- **Domain Expansion (領域展開, Ryōiki Tenkai)** — in the series, expanding a domain requires forming the user's unique seal (Gojo's derives from Taishakuten/Indra, Sukuna's from Enmaten/Yama). Hold either domain seal steady for ~2.5 s and the app plays the full Domain Expansion cinematic.
+- **The Well's Unknown Abyss (不知井底, Seiteishirazu)** — Megumi's own extension technique: weaving the shadows of Toad and Nue in succession fuses them into winged toads (first used vs Aoi Todo, Kyoto Goodwill Event). Form Toad and Nue within 8 s of each other to trigger the fusion.
 
 ## Project Goals
 
 - [x] Real-time webcam hand detection using MediaPipe
 - [x] In-browser model inference using inferencejs
-- [ ] Anime-themed UI with cursed energy particle effects
+- [x] Anime-themed UI with cursed energy particle effects
 - [x] Detect JJK hand signs including Domain Expansion and Ten Shadows Technique
-- [ ] Vercel serverless proxy to hide API key in production (optional improvement)
-- [ ] Sequence detection — recognize multi-sign combos like Sukuna's Dismantle
-- [ ] Sound effects on sign detection
+- [x] Vercel serverless proxy to hide API key in production (optional improvement)
+- [x] Sequence detection — recognize multi-sign combos (canon-accurate: Toad + Nue → Seiteishirazu)
+- [x] Sound effects on sign detection
 
 ## File Structure
 
 ```
 /
 ├── index.html        # Single-file app (HTML + CSS + JS)
-├── README.md
-└── vercel.json       # Optional: for Vercel proxy deployment
+├── api/key.js        # Optional Vercel function: serves the key from an env var
+├── test/e2e.cjs      # Playwright end-to-end smoke test
+├── vercel.json       # Vercel static deployment config
+└── README.md
 ```
 
-## Key Implementation Notes for Claude Code
+## Run Locally
 
-- The inferencejs library is loaded via CDN: `https://cdn.roboflow.com/0.2.26/roboflow.js`
-- Initialize with: `roboflow.auth({ publishable_key: 'YOUR_KEY' }).load({ model: 'jujutsu-kaisen-hand-signs', version: 1 })`
-- MediaPipe and inferencejs run concurrently — MediaPipe draws the skeleton overlay on a canvas, inferencejs runs inference on the raw video feed
-- The detection loop should throttle to ~1 detection per 800ms to avoid overwhelming the model
-- API key input should be saved to localStorage so visitors only enter it once
+```bash
+npm run dev            # serves on http://localhost:3000 (npx http-server)
+```
+
+Then open <http://localhost:3000> and click **Activate Cursed Vision**. Camera access requires `localhost` or HTTPS.
+
+**Demo mode** — open <http://localhost:3000/?demo=1> to preview every effect (detection cards, the Seiteishirazu fusion, both Domain Expansion cinematics) with simulated signs: no camera, model download, or Roboflow access needed.
+
+**End-to-end test** (needs `playwright`):
+
+```bash
+npx http-server . -p 3111 &
+BASE_URL=http://127.0.0.1:3111 node test/e2e.cjs
+```
+
+## Deploy to Vercel
+
+The site is fully static — import the repo into Vercel and deploy. Optionally set a `ROBOFLOW_PUBLISHABLE_KEY` environment variable: the `api/key.js` function serves it to the client at runtime (the client falls back to its embedded key otherwise). Note the publishable key is browser-safe by design — it only authorizes the one-time model weight download, not per-detection billing.
+
+## Key Implementation Notes
+
+- inferencejs is loaded via CDN: `https://cdn.jsdelivr.net/npm/inferencejs@1.2.3/dist/inference.js` (UMD global `window.inferencejs`)
+- Initialize with: `const engine = new InferenceEngine(); const workerId = await engine.startWorker('jujutsu-kaisen-hand-signs', 1, PUBLISHABLE_KEY)`
+- Detect with: `await engine.infer(workerId, new CVImage(videoElement))` → `[{ class, confidence, bbox, color }]`; note `bbox.x/y` is the box **center**
+- MediaPipe and inferencejs run concurrently — MediaPipe (2-hand mode; most JJK seals are two-handed) draws the skeleton overlay on a canvas, inferencejs runs inference on the raw video feed
+- The detection loop throttles to ~1 detection per 800ms to avoid overwhelming the model
 - The UI is dark-themed (near-black background), anime/JJK aesthetic with crimson and gold accents, Cinzel font for headings
-- Each detected sign should display its kanji character, English name, and a short lore description
-- Particle burst effects should fire on each new detection, color-coded by character (Sukuna = red, Gojo = blue, Megumi = green)
+- Each detected sign displays its kanji, romaji, English name, character attribution, and series-accurate lore
+- Particle burst effects fire on each new detection, color-coded by character (Sukuna = red, Gojo = blue, Megumi = green)
+- Unofficial fan project — Jujutsu Kaisen © Gege Akutami / Shueisha
