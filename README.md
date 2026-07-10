@@ -80,7 +80,8 @@ The app gives you two live tuning tools:
 
 - **Always-on resonance readout** — the bar over the camera shows the model's current best guess and confidence *even below the trigger threshold*, so you can tell "predicted at 35%, threshold too high" apart from "not predicted at all".
 - **TRIGGER THRESHOLD slider** — the minimum confidence a prediction needs to fire (default 40%). Lower it to catch weak signs; raise it to suppress false positives.
-- **🪞 mirror toggle** — feeds horizontally-flipped frames to the model. Try this if handed/chiral seals (e.g. Gojo's one-handed sign) never detect while symmetric shadow puppets (Nue, Divine Dogs) work: it usually means the training images were mirrored.
+
+Note: inference always runs on horizontally-mirrored frames (`MIRROR_INFERENCE` in `index.html`) — real-camera testing showed the training images are mirrored relative to the raw webcam frame, and all signs detect better flipped. If you retrain with unmirrored data, set that constant to `false`.
 
 If a sign is genuinely not being predicted, the fix is more training data:
 
