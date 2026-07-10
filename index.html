@@ -447,8 +447,8 @@
     <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Toggle sound effects">🔊</button>
     <button class="icon-btn" id="mirrorBtn" onclick="toggleMirror()" title="Mirror frames before inference — try this if one-handed / chiral seals won't detect">🪞</button>
   </div>
-  <div class="tune-row">
-    <span>SENSITIVITY</span>
+  <div class="tune-row" title="Minimum confidence a prediction needs to trigger. Lower = catches weaker signs, higher = fewer false positives.">
+    <span>TRIGGER THRESHOLD</span>
     <input type="range" id="confSlider" min="20" max="80" step="5">
     <span id="confSliderVal">40%</span>
   </div>
@@ -480,7 +480,7 @@
     ① Allow camera access and hold a sign steadily in frame, palms toward the camera. Good even lighting and a plain background help a lot.<br>
     ② <strong>Domain Expansion:</strong> hold Gojo's or Sukuna's seal for ~2.5 seconds to expand your domain.<br>
     ③ <strong>Extension technique:</strong> weave Toad (蝦蟇) and then Nue (鵺) within 8 seconds to fuse them into Seiteishirazu.<br>
-    ④ The bar on the camera always shows the model's current best guess and its confidence — if a sign hovers just under the trigger level, lower the <strong>SENSITIVITY</strong> slider.<br>
+    ④ The bar on the camera always shows the model's current best guess and its confidence — if a sign hovers just under the trigger level, lower the <strong>TRIGGER THRESHOLD</strong> slider.<br>
     ⑤ If one-handed seals (like Gojo's) never register, toggle the <strong>🪞 mirror</strong> button — some training data is horizontally flipped.<br>
     ⑥ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
   </div>
