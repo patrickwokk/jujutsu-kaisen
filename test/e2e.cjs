@@ -42,10 +42,6 @@ async function main() {
     null, { timeout: 10000 });
   console.log('✓ detection card shown');
 
-  // Divine Dogs detection fires the shadow-wolf jumpscare
-  await page.waitForFunction(() => window.__jjk.dogs >= 1, null, { timeout: 10000 });
-  console.log('✓ Divine Dogs jumpscare fired');
-
   // Fusion: Gama then Nue within window → Seiteishirazu
   await page.waitForFunction(() => window.__jjk.fusions >= 1, null, { timeout: 15000 });
   const fusionName = await page.textContent('#signName');

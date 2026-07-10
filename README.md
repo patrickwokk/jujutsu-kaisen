@@ -33,9 +33,8 @@ The app maps these raw labels onto full technique entries via the `CLASS_ALIASES
 
 ### Special interactions (canon)
 
-- **Domain Expansion (領域展開, Ryōiki Tenkai)** — in the series, expanding a domain requires forming the user's unique seal (Gojo's derives from Taishakuten/Indra, Sukuna's from Enmaten/Yama). Hold either domain seal steady for ~2.5 s to expand your domain. Each domain has its own immersive canvas cinematic with a synced WebAudio score: **Unlimited Void** is an accelerating star-leap through a tunnel that floods to blinding white; **Malevolent Shrine** is a breathing, blood-dark demonic space with rising embers and Dismantle/Cleave slashes tearing across it (slash visuals and shrieks share the same timeline).
+- **Domain Expansion (領域展開, Ryōiki Tenkai)** — in the series, expanding a domain requires forming the user's unique seal (Gojo's derives from Taishakuten/Indra, Sukuna's from Enmaten/Yama). Hold either domain seal steady for ~2.5 s and the app plays the full Domain Expansion cinematic.
 - **The Well's Unknown Abyss (不知井底, Seiteishirazu)** — Megumi's own extension technique: weaving the shadows of Toad and Nue in succession fuses them into winged toads (first used vs Aoi Todo, Kyoto Goodwill Event). Form Toad and Nue within 8 s of each other to trigger the fusion.
-- **Divine Dogs jumpscare** — detecting the Divine Dogs sign makes a shadow-wolf silhouette with glowing eyes lunge out of the dark at the screen (Ten Shadows shikigami materialize from liquid shadow), with screen shake and a growl-bark. Cooldown ~8 s.
 
 ## Project Goals
 
