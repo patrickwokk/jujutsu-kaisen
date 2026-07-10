@@ -83,6 +83,8 @@ The app gives you two live tuning tools:
 
 Note: inference always runs on horizontally-mirrored frames (`MIRROR_INFERENCE` in `index.html`) — real-camera testing showed the training images are mirrored relative to the raw webcam frame, and all signs detect better flipped. If you retrain with unmirrored data, set that constant to `false`.
 
+The `CLASS_BIAS` table in `index.html` rebalances per-class confidence (the current model over-predicts Gojo's seal and under-predicts Sukuna's): Gojo's confidence is weighted ×0.85 and Sukuna's ×1.30 for ranking and trigger checks, while the displayed % stays raw. Tune or remove these after retraining.
+
 If a sign is genuinely not being predicted, the fix is more training data:
 
 1. Open the [Roboflow project](https://universe.roboflow.com/jjk-doyjq/jujutsu-kaisen-hand-signs) → **Upload** 30–100+ new images per weak class (vary lighting, background, distance, and ideally people).

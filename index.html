@@ -176,27 +176,47 @@
     width: 0%;
     transition: width 0.4s ease;
   }
-  /* domain charge bar */
+  /* domain charge — big centered channeling indicator */
   .domain-charge {
     position: absolute;
-    bottom: 44px; left: 14px; right: 14px;
-    z-index: 10;
+    left: 8%; right: 8%;
+    top: 50%; transform: translateY(-50%);
+    z-index: 11;
+    text-align: center;
     opacity: 0;
-    transition: opacity 0.3s;
+    pointer-events: none;
+    transition: opacity 0.25s;
   }
   .domain-charge.show { opacity: 1; }
   .domain-charge .charge-label {
-    font-size: 9px; letter-spacing: 0.25em; color: var(--gold);
-    margin-bottom: 4px; text-align: center;
-    text-shadow: 0 0 8px rgba(212,160,23,0.5);
+    font-size: clamp(12px, 2.6vw, 15px); font-weight: 700;
+    letter-spacing: 0.3em; color: var(--charge-color, var(--gold));
+    margin-bottom: 10px;
+    text-shadow: 0 0 16px var(--charge-color, rgba(212,160,23,0.9)), 0 2px 8px rgba(0,0,0,0.95);
+    animation: charge-pulse 0.9s ease-in-out infinite;
   }
-  .domain-charge .charge-track { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .domain-charge .charge-track {
+    height: 10px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--charge-color, rgba(212,160,23,0.5));
+    border-radius: 6px; overflow: hidden;
+    box-shadow: 0 0 18px rgba(0,0,0,0.6);
+  }
   .domain-charge .charge-fill  {
     height: 100%; width: 0%;
-    background: linear-gradient(90deg, var(--gold), #fff);
-    border-radius: 2px;
+    background: linear-gradient(90deg, var(--charge-color, var(--gold)), #fff);
+    border-radius: 6px;
     transition: width 0.5s ease;
-    box-shadow: 0 0 12px rgba(212,160,23,0.8);
+    box-shadow: 0 0 22px var(--charge-color, rgba(212,160,23,0.9));
+  }
+  @keyframes charge-pulse {
+    0%, 100% { opacity: 0.82; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.04); }
+  }
+  .camera-frame.channeling {
+    box-shadow: 0 0 34px var(--charge-color, rgba(212,160,23,0.55)),
+                inset 0 0 60px rgba(0,0,0,0.4);
+    transition: box-shadow 0.4s;
   }
   /* confidence strip */
   .conf-strip {
@@ -428,7 +448,7 @@
         <div class="model-load-fill" id="loadFill"></div>
       </div>
       <div class="domain-charge" id="domainCharge">
-        <div class="charge-label">CHANNELING DOMAIN…</div>
+        <div class="charge-label" id="domainChargeLabel">CHANNELING DOMAIN…</div>
         <div class="charge-track"><div class="charge-fill" id="domainChargeFill"></div></div>
       </div>
       <div class="conf-strip" id="confStrip">
@@ -568,6 +588,14 @@ const CHAR_GLOW = {
 const DOMAIN_HOLD_HITS = 3;      // consecutive detections (~800 ms apart) to expand a domain
 const DOMAIN_COOLDOWN_MS = 12000;
 const FUSION_COOLDOWN_MS = 10000;
+// Per-class confidence weighting to rebalance model bias: the trained model
+// over-predicts Gojo's seal and under-predicts Sukuna's, so Gojo needs more
+// raw confidence to win/trigger and Sukuna needs less. Applied to ranking and
+// threshold checks only — the displayed % stays raw.
+const CLASS_BIAS = {
+  'Gojo-Domain-Expansion':   0.85,
+  'Sukuna-Domain-Expansion': 1.30,
+};
 
 // ═══ State ════════════════════════════════════════════════════════════════════
 const DEMO_MODE = new URLSearchParams(location.search).has('demo');
@@ -938,21 +966,26 @@ function handlePredictions(predictions) {
     return;
   }
   emptyStreak = 0;
-  const sorted     = [...predictions].sort((a, b) => b.confidence - a.confidence);
-  const best       = sorted[0];
+  const scored = predictions
+    .map(p => {
+      const cls = resolveClass(p.class);
+      return { p, cls, score: p.confidence * (CLASS_BIAS[cls] || 1) };
+    })
+    .sort((a, b) => b.score - a.score);
+  const best       = scored[0].p;
+  const className  = scored[0].cls;
   const confidence = Math.round(best.confidence * 100);
-  const className  = resolveClass(best.class);
   // Always surface the model's best guess — even below the trigger threshold —
   // so weak/borderline signs are visible while tuning sensitivity. Show the
   // runner-up too: useful when two seals are being confused.
-  const dispName = c => { const k = resolveClass(c); return (SIGNS[k] ? SIGNS[k].name : k).toUpperCase(); };
-  let label = 'RESONANCE · ' + dispName(best.class);
-  if (sorted[1]) label += ` (ALT ${dispName(sorted[1].class)} ${Math.round(sorted[1].confidence * 100)}%)`;
+  const dispName = k => (SIGNS[k] ? SIGNS[k].name : k).toUpperCase();
+  let label = 'RESONANCE · ' + dispName(className);
+  if (scored[1]) label += ` (ALT ${dispName(scored[1].cls)} ${Math.round(scored[1].p.confidence * 100)}%)`;
   document.getElementById('confLabelName').textContent = label;
   document.getElementById('confStrip').classList.add('show');
   document.getElementById('confFill').style.width = confidence + '%';
   document.getElementById('confPct').textContent  = confidence + '%';
-  if (best.confidence < confThreshold) return;
+  if (scored[0].score < confThreshold) return;
   if (best.bbox) {
     const vw = document.getElementById('video').videoWidth || 640;
     lastDetBox = {
@@ -1062,7 +1095,7 @@ function trackDomainHold(cls) {
   domainStreak.misses = 0;
   const now = performance.now();
   if (now < (domainCooldowns[cls] || 0)) { hideDomainCharge(); return; }
-  showDomainCharge(domainStreak.count / DOMAIN_HOLD_HITS);
+  showDomainCharge(domainStreak.count / DOMAIN_HOLD_HITS, cls);
   if (domainStreak.count >= DOMAIN_HOLD_HITS) {
     domainCooldowns[cls] = now + DOMAIN_COOLDOWN_MS;
     resetDomainStreak();
@@ -1073,12 +1106,23 @@ function resetDomainStreak() {
   domainStreak = { cls: null, count: 0, misses: 0 };
   hideDomainCharge();
 }
-function showDomainCharge(frac) {
-  document.getElementById('domainCharge').classList.add('show');
+const CHAR_HEX = { gojo: 'rgba(0,200,255,0.85)', sukuna: 'rgba(255,34,68,0.85)', megumi: 'rgba(34,204,136,0.85)' };
+function showDomainCharge(frac, cls) {
+  const sign = SIGNS[cls];
+  const charge = document.getElementById('domainCharge');
+  const frame = document.getElementById('cameraFrame');
+  const color = CHAR_HEX[sign.char] || CHAR_HEX.sukuna;
+  charge.style.setProperty('--charge-color', color);
+  frame.style.setProperty('--charge-color', color);
+  document.getElementById('domainChargeLabel').textContent =
+    '領域展開 — CHANNELING ' + sign.name.toUpperCase();
+  charge.classList.add('show');
+  frame.classList.add('channeling');
   document.getElementById('domainChargeFill').style.width = Math.min(100, frac * 100) + '%';
 }
 function hideDomainCharge() {
   document.getElementById('domainCharge').classList.remove('show');
+  document.getElementById('cameraFrame').classList.remove('channeling');
   document.getElementById('domainChargeFill').style.width = '0%';
 }
 function expandDomain(cls) {
