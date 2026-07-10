@@ -83,7 +83,7 @@ BASE_URL=http://127.0.0.1:3111 node test/e2e.cjs
 
 Note: inference always runs on horizontally-mirrored frames (`MIRROR_INFERENCE` in `index.html`) — real-camera testing showed the training images are mirrored relative to the raw webcam frame, and all signs detect better flipped. If you retrain with unmirrored data, set that constant to `false`.
 
-The `CLASS_BIAS` table in `index.html` rebalances per-class confidence (the current model over-predicts Gojo's seal and under-predicts Sukuna's and Divine Dogs'): Gojo ×0.85, Sukuna ×1.30, Divine Dogs ×1.35 — applied to ranking and trigger checks while the displayed % stays raw. Tune or remove these after retraining.
+The `CLASS_BIAS` table in `index.html` rebalances per-class confidence (the current model over-predicts Gojo's seal and under-predicts Sukuna's and Divine Dogs'): Gojo ×0.80, Sukuna ×1.45, Divine Dogs ×1.15 — applied to ranking and trigger checks while the displayed % stays raw. Keep the Divine Dogs boost modest: the wolf and the two-handed domain seals share a silhouette, and a large boost steals frames from domain holds. The domain hold itself tolerates one stray misread frame before resetting. Tune or remove these after retraining.
 
 If a sign is genuinely not being predicted, the fix is more training data:
 

@@ -596,9 +596,11 @@ const FUSION_COOLDOWN_MS = 10000;
 // raw confidence to win/trigger and Sukuna needs less. Applied to ranking and
 // threshold checks only — the displayed % stays raw.
 const CLASS_BIAS = {
-  'Gojo-Domain-Expansion':   0.85,
-  'Sukuna-Domain-Expansion': 1.30,
-  'Divine-Dogs':             1.35,  // under-predicted — boost so ~23% raw confidence triggers
+  'Gojo-Domain-Expansion':   0.80,
+  'Sukuna-Domain-Expansion': 1.45,
+  // keep the wolf boost modest — at 1.35 it stole single frames from the
+  // two-handed domain seals and kept breaking their hold streaks
+  'Divine-Dogs':             1.15,
 };
 
 // ═══ State ════════════════════════════════════════════════════════════════════
@@ -614,7 +616,7 @@ let lastClass      = null;
 let detectionTimer = null;
 let lastDetBox     = null;   // {x,y,w,h,color,until} in video pixel coords
 let signHistory    = [];     // transitions: {cls, t}
-let domainStreak   = { cls: null, count: 0, misses: 0 };
+let domainStreak   = { cls: null, count: 0, misses: 0, wrong: 0 };
 let domainCooldowns = {};    // cls -> timestamp until which it can't re-trigger
 let fusionCooldownUntil = 0;
 let demoStep       = 0;
@@ -1117,21 +1119,38 @@ function triggerFusion(ext) {
 // ═══ Domain Expansion — hold the seal to expand ═══════════════════════════════
 function trackDomainHold(cls) {
   const sign = SIGNS[cls];
-  if (!sign || !sign.domain) { resetDomainStreak(); return; }
-  if (domainStreak.cls === cls) domainStreak.count++;
-  else domainStreak = { cls, count: 1, misses: 0 };
+  const isDomain = !!(sign && sign.domain);
+  if (domainStreak.cls) {
+    if (cls === domainStreak.cls) {
+      domainStreak.count++;
+      domainStreak.wrong = 0;
+    } else if (++domainStreak.wrong > 1) {
+      // two stray frames in a row — the hold is genuinely broken
+      if (isDomain) domainStreak = { cls, count: 1, misses: 0, wrong: 0 };
+      else { resetDomainStreak(); return; }
+    } else {
+      // grace: a single misread frame pauses the charge instead of
+      // resetting it — model flicker was making domains near-impossible
+      return;
+    }
+  } else if (isDomain) {
+    domainStreak = { cls, count: 1, misses: 0, wrong: 0 };
+  } else {
+    return;
+  }
   domainStreak.misses = 0;
+  const held = domainStreak.cls;
   const now = performance.now();
-  if (now < (domainCooldowns[cls] || 0)) { hideDomainCharge(); return; }
-  showDomainCharge(domainStreak.count / DOMAIN_HOLD_HITS, cls);
+  if (now < (domainCooldowns[held] || 0)) { hideDomainCharge(); return; }
+  showDomainCharge(domainStreak.count / DOMAIN_HOLD_HITS, held);
   if (domainStreak.count >= DOMAIN_HOLD_HITS) {
-    domainCooldowns[cls] = now + DOMAIN_COOLDOWN_MS;
+    domainCooldowns[held] = now + DOMAIN_COOLDOWN_MS;
     resetDomainStreak();
-    expandDomain(cls);
+    expandDomain(held);
   }
 }
 function resetDomainStreak() {
-  domainStreak = { cls: null, count: 0, misses: 0 };
+  domainStreak = { cls: null, count: 0, misses: 0, wrong: 0 };
   hideDomainCharge();
 }
 const CHAR_HEX = { gojo: 'rgba(0,200,255,0.85)', sukuna: 'rgba(255,34,68,0.85)', megumi: 'rgba(34,204,136,0.85)' };
