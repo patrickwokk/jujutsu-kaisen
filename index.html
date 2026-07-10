@@ -1182,12 +1182,16 @@ function startVoidWarp(durationMs) {
   const t0 = performance.now();
   if (voidRaf) cancelAnimationFrame(voidRaf);
   (function frame(now) {
-    const t = now - t0;
+    // clamp: the first rAF timestamp can precede the t0 captured above,
+    // and a negative t makes Math.pow(p, 2.1) NaN → gradient throws →
+    // the whole animation freezes on its first frame
+    const t = Math.max(0, now - t0);
     if (t > durationMs || !document.getElementById('domainOverlay').classList.contains('show')) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       voidRaf = null;
       return;
     }
+    try {
     // Deep void: near-black indigo core bleeding into Gojo blue/violet edges
     const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.25);
     bg.addColorStop(0,   '#02030f');
@@ -1218,7 +1222,7 @@ function startVoidWarp(durationMs) {
     }
     // The white light at the tunnel's end — starts as a pinpoint, swells
     // faster and faster, and almost engulfs the screen by the end
-    const p = t / durationMs;
+    const p = Math.min(1, t / durationMs);
     const rimR = 8 + Math.hypot(cx, cy) * 0.96 * Math.pow(p, 2.1);
     const light = ctx.createRadialGradient(cx, cy, 0, cx, cy, rimR);
     light.addColorStop(0,    'rgba(255,255,255,1)');
@@ -1228,6 +1232,12 @@ function startVoidWarp(durationMs) {
     ctx.beginPath();
     ctx.arc(cx, cy, rimR, 0, Math.PI * 2);
     ctx.fill();
+    } catch (e) {
+      // never let a drawing error freeze the cinematic silently
+      console.error('void warp frame error:', e);
+      stopVoidWarp();
+      return;
+    }
     voidRaf = requestAnimationFrame(frame);
   })(t0);
 }
