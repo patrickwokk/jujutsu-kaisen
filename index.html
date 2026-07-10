@@ -405,6 +405,24 @@
     0%   { transform: scale(1.25); opacity: 0; filter: blur(6px); }
     100% { transform: scale(1); opacity: 1; filter: blur(0); }
   }
+  /* ── Divine Dogs strike — clip with black bg, blended over the page ── */
+  .dog-strike {
+    position: fixed; inset: 0; z-index: 70;
+    display: none;
+    pointer-events: none;
+    background: rgba(0,0,0,0);
+    transition: background 0.25s;
+  }
+  .dog-strike.play {
+    display: block;
+    background: rgba(0,0,0,0.45);
+  }
+  .dog-strike video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    /* screen blend: black pixels become transparent, the dog floats free */
+    mix-blend-mode: screen;
+  }
   /* ── Particles ── */
   #particles { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
   /* ── Animations ── */
@@ -604,7 +622,7 @@ let domainCooldowns = {};    // cls -> timestamp until which it can't re-trigger
 let fusionCooldownUntil = 0;
 let demoStep       = 0;
 // Hooks for automated testing (test/e2e.cjs)
-window.__jjk = { detections: 0, domains: 0, fusions: 0 };
+window.__jjk = { detections: 0, domains: 0, fusions: 0, dogs: 0 };
 
 // Optional: a Vercel serverless function can serve the key from an env var.
 const keyPromise = fetch('/api/key')
@@ -1016,6 +1034,7 @@ function handlePredictions(predictions) {
     const sign = SIGNS[className];
     triggerBurst(sign ? sign.char : 'sukuna', 44);
     sfxDetect(sign ? sign.char : 'sukuna');
+    if (className === 'Divine-Dogs') dogStrike();
     recordSign(className);
   }
   trackDomainHold(className);
@@ -1242,6 +1261,27 @@ function startVoidWarp(durationMs) {
   })(t0);
 }
 
+// ═══ Divine Dogs strike — play the summon clip over the page ═════════════════
+let dogCooldownUntil = 0;
+function dogStrike() {
+  const now = performance.now();
+  if (now < dogCooldownUntil) return;
+  dogCooldownUntil = now + 8000;
+  window.__jjk.dogs++;
+  const wrap = document.getElementById('dogStrike');
+  const vid  = document.getElementById('dogVideo');
+  const done = () => wrap.classList.remove('play');
+  wrap.classList.add('play');
+  vid.currentTime = 0;
+  vid.addEventListener('ended', done, { once: true });
+  vid.play().catch(err => {
+    console.warn('divine dog clip failed to play:', err);
+    done();
+  });
+  // never leave the overlay stuck if 'ended' doesn't fire
+  setTimeout(done, 10000);
+}
+
 // ═══ UI helpers ═══════════════════════════════════════════════════════════════
 function showDetection(className, confidence) {
   const sign = SIGNS[className] || {
@@ -1370,6 +1410,10 @@ buildSignsGrid();
 buildComboPanels();
 initSoundButton();
 </script>
+<!-- Divine Dogs strike clip (black background, screen-blended) -->
+<div class="dog-strike" id="dogStrike" aria-hidden="true">
+  <video id="dogVideo" src="assets/divine-dog.mp4" muted playsinline preload="auto"></video>
+</div>
 <!-- Domain Expansion cinematic overlay -->
 <div class="domain-overlay" id="domainOverlay">
   <canvas id="domainFx"></canvas>

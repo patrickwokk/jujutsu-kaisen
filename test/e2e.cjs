@@ -42,6 +42,11 @@ async function main() {
     null, { timeout: 10000 });
   console.log('✓ detection card shown');
 
+  // Divine Dogs detection triggers the strike clip (playback itself needs
+  // an H.264-capable browser; the trigger counter must fire regardless)
+  await page.waitForFunction(() => window.__jjk.dogs >= 1, null, { timeout: 10000 });
+  console.log('✓ Divine Dogs strike triggered');
+
   // Fusion: Gama then Nue within window → Seiteishirazu
   await page.waitForFunction(() => window.__jjk.fusions >= 1, null, { timeout: 15000 });
   const fusionName = await page.textContent('#signName');

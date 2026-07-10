@@ -35,6 +35,7 @@ The app maps these raw labels onto full technique entries via the `CLASS_ALIASES
 
 - **Domain Expansion (領域展開, Ryōiki Tenkai)** — in the series, expanding a domain requires forming the user's unique seal (Gojo's derives from Taishakuten/Indra, Sukuna's from Enmaten/Yama). Hold either domain seal steady for ~2.5 s and the app plays the full Domain Expansion cinematic.
 - **The Well's Unknown Abyss (不知井底, Seiteishirazu)** — Megumi's own extension technique: weaving the shadows of Toad and Nue in succession fuses them into winged toads (first used vs Aoi Todo, Kyoto Goodwill Event). Form Toad and Nue within 8 s of each other to trigger the fusion.
+- **Divine Dogs strike** — detecting the Divine Dogs sign plays `assets/divine-dog.mp4` full-screen: the clip has a black background and is blended with `mix-blend-mode: screen`, so the dog leaps seamlessly over the live page. Cooldown ~8 s.
 
 ## Project Goals
 
@@ -50,10 +51,11 @@ The app maps these raw labels onto full technique entries via the `CLASS_ALIASES
 
 ```
 /
-├── index.html        # Single-file app (HTML + CSS + JS)
-├── api/key.js        # Optional Vercel function: serves the key from an env var
-├── test/e2e.cjs      # Playwright end-to-end smoke test
-├── vercel.json       # Vercel static deployment config
+├── index.html            # Single-file app (HTML + CSS + JS)
+├── assets/divine-dog.mp4 # Divine Dogs strike clip (black bg, screen-blended)
+├── api/key.js            # Optional Vercel function: serves the key from an env var
+├── test/e2e.cjs          # Playwright end-to-end smoke test
+├── vercel.json           # Vercel static deployment config
 └── README.md
 ```
 
