@@ -72,6 +72,20 @@ npx http-server . -p 3111 &
 BASE_URL=http://127.0.0.1:3111 node test/e2e.cjs
 ```
 
+## Improving Detection Accuracy
+
+The app gives you two live tuning tools:
+
+- **Always-on resonance readout** — the bar over the camera shows the model's current best guess and confidence *even below the trigger threshold*, so you can tell "predicted at 35%, threshold too high" apart from "not predicted at all".
+- **SENSITIVITY slider** — lowers/raises the trigger threshold (default 40%).
+- **🪞 mirror toggle** — feeds horizontally-flipped frames to the model. Try this if handed/chiral seals (e.g. Gojo's one-handed sign) never detect while symmetric shadow puppets (Nue, Divine Dogs) work: it usually means the training images were mirrored.
+
+If a sign is genuinely not being predicted, the fix is more training data:
+
+1. Open the [Roboflow project](https://universe.roboflow.com/jjk-doyjq/jujutsu-kaisen-hand-signs) → **Upload** 30–100+ new images per weak class (vary lighting, background, distance, and ideally people).
+2. Annotate them, then **Generate** a new dataset version. ⚠️ **Disable the horizontal-flip augmentation** — JJK seals are chiral, and flip augmentation teaches the model mirrored signs, causing exactly the confusion the 🪞 toggle works around.
+3. Train the new version, then bump `RF_VERSION` in `index.html` (e.g. `1` → `2`).
+
 ## Deploy to Vercel
 
 The site is fully static — import the repo into Vercel and deploy. Optionally set a `ROBOFLOW_PUBLISHABLE_KEY` environment variable: the `api/key.js` function serves it to the client at runtime (the client falls back to its embedded key otherwise). Note the publishable key is browser-safe by design — it only authorizes the one-time model weight download, not per-detection billing.

@@ -243,6 +243,13 @@
     transition: border-color 0.2s, background 0.2s;
   }
   .icon-btn:hover { border-color: var(--gold); background: rgba(212,160,23,0.08); }
+  .icon-btn.on { border-color: var(--gojo-blue); color: var(--gojo-blue); background: rgba(0,200,255,0.08); }
+  .tune-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 10px; letter-spacing: 0.2em; color: var(--muted);
+  }
+  .tune-row input[type=range] { width: 140px; accent-color: var(--crimson); }
+  .tune-row #confSliderVal { color: var(--gold); min-width: 34px; }
   /* ── Result card ── */
   .result-card {
     width: 100%;
@@ -427,7 +434,7 @@
       </div>
       <div class="conf-strip" id="confStrip">
         <div class="conf-label">
-          <span>CURSED ENERGY RESONANCE</span>
+          <span id="confLabelName">CURSED ENERGY RESONANCE</span>
           <span id="confPct">0%</span>
         </div>
         <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
@@ -438,6 +445,12 @@
   <div class="btn-row">
     <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
     <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Toggle sound effects">🔊</button>
+    <button class="icon-btn" id="mirrorBtn" onclick="toggleMirror()" title="Mirror frames before inference — try this if one-handed / chiral seals won't detect">🪞</button>
+  </div>
+  <div class="tune-row">
+    <span>SENSITIVITY</span>
+    <input type="range" id="confSlider" min="20" max="80" step="5">
+    <span id="confSliderVal">40%</span>
   </div>
   <!-- Result -->
   <div class="result-card" id="resultCard">
@@ -464,10 +477,12 @@
   <!-- How to -->
   <div class="howto">
     <strong>HOW TO USE</strong><br>
-    ① Allow camera access and hold a sign steadily in frame, palms toward the camera.<br>
+    ① Allow camera access and hold a sign steadily in frame, palms toward the camera. Good even lighting and a plain background help a lot.<br>
     ② <strong>Domain Expansion:</strong> hold Gojo's or Sukuna's seal for ~2.5 seconds to expand your domain.<br>
     ③ <strong>Extension technique:</strong> weave Toad (蝦蟇) and then Nue (鵺) within 8 seconds to fuse them into Seiteishirazu.<br>
-    ④ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
+    ④ The bar on the camera always shows the model's current best guess and its confidence — if a sign hovers just under the trigger level, lower the <strong>SENSITIVITY</strong> slider.<br>
+    ⑤ If one-handed seals (like Gojo's) never register, toggle the <strong>🪞 mirror</strong> button — some training data is horizontally flipped.<br>
+    ⑥ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
   </div>
 </main>
 <footer>
@@ -487,7 +502,12 @@ const RF_VERSION  = 1;
 // weight download). Can be overridden by the optional /api/key Vercel function.
 const RF_FALLBACK_KEY = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
 const DETECT_INTERVAL_MS = 800;
-const CONF_THRESHOLD = 0.5;
+// Detection threshold, adjustable via the SENSITIVITY slider (persisted).
+let confThreshold = parseFloat(localStorage.getItem('jjkConf') || '0.4');
+// Feed horizontally-flipped frames to the model. Useful when the training
+// images were mirrored (or augmented with horizontal flips): chiral seals
+// like Gojo's one-handed sign then only match in the flipped orientation.
+let mirrorInference = localStorage.getItem('jjkMirror') === 'on';
 
 // ═══ Sign database — canon-accurate to the original series ════════════════════
 // Keys are the exact class labels of the Roboflow model.
@@ -873,8 +893,7 @@ async function runDetection() {
   }
   detecting = true;
   try {
-    const { CVImage } = window.inferencejs;
-    const predictions = await inferEngine.infer(rfWorkerId, new CVImage(video));
+    const predictions = await inferEngine.infer(rfWorkerId, await inferInput(video));
     if (cameraActive) handlePredictions(predictions);
   } catch (e) {
     console.warn('Detection error:', e);
@@ -884,6 +903,39 @@ async function runDetection() {
 }
 
 let emptyStreak = 0;
+let flipCanvas = null, flipCtx = null;
+async function inferInput(video) {
+  const { CVImage } = window.inferencejs;
+  if (!mirrorInference) return new CVImage(video);
+  if (!flipCanvas) {
+    flipCanvas = document.createElement('canvas');
+    flipCtx = flipCanvas.getContext('2d');
+  }
+  flipCanvas.width  = video.videoWidth  || 640;
+  flipCanvas.height = video.videoHeight || 480;
+  flipCtx.save();
+  flipCtx.scale(-1, 1);
+  flipCtx.drawImage(video, -flipCanvas.width, 0);
+  flipCtx.restore();
+  return await createImageBitmap(flipCanvas);
+}
+function toggleMirror() {
+  mirrorInference = !mirrorInference;
+  localStorage.setItem('jjkMirror', mirrorInference ? 'on' : 'off');
+  initTuning();
+}
+function initTuning() {
+  document.getElementById('mirrorBtn').classList.toggle('on', mirrorInference);
+  const slider = document.getElementById('confSlider');
+  slider.value = Math.round(confThreshold * 100);
+  document.getElementById('confSliderVal').textContent = Math.round(confThreshold * 100) + '%';
+  slider.oninput = () => {
+    confThreshold = slider.value / 100;
+    localStorage.setItem('jjkConf', String(confThreshold));
+    document.getElementById('confSliderVal').textContent = slider.value + '%';
+  };
+}
+
 function handlePredictions(predictions) {
   updateComboUI();
   if (!predictions || predictions.length === 0) {
@@ -898,13 +950,20 @@ function handlePredictions(predictions) {
   const best       = [...predictions].sort((a, b) => b.confidence - a.confidence)[0];
   const confidence = Math.round(best.confidence * 100);
   const className  = resolveClass(best.class);
+  // Always surface the model's best guess — even below the trigger threshold —
+  // so weak/borderline signs are visible while tuning sensitivity.
+  const guess = SIGNS[className] ? SIGNS[className].name : className;
+  document.getElementById('confLabelName').textContent = ('RESONANCE · ' + guess).toUpperCase();
   document.getElementById('confStrip').classList.add('show');
   document.getElementById('confFill').style.width = confidence + '%';
   document.getElementById('confPct').textContent  = confidence + '%';
-  if (best.confidence < CONF_THRESHOLD) return;
+  if (best.confidence < confThreshold) return;
   if (best.bbox) {
+    const vw = document.getElementById('video').videoWidth || 640;
     lastDetBox = {
-      x: best.bbox.x, y: best.bbox.y, w: best.bbox.width, h: best.bbox.height,
+      // when inference ran on a flipped frame, mirror the box back into video space
+      x: mirrorInference ? vw - best.bbox.x : best.bbox.x,
+      y: best.bbox.y, w: best.bbox.width, h: best.bbox.height,
       color: best.color || '#d4a017',
       until: performance.now() + DETECT_INTERVAL_MS * 1.5,
     };
@@ -1160,6 +1219,7 @@ function animParticles() {
 buildSignsGrid();
 buildComboPanels();
 initSoundButton();
+initTuning();
 </script>
 <!-- Domain Expansion cinematic overlay -->
 <div class="domain-overlay" id="domainOverlay">
