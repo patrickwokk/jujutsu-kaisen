@@ -405,6 +405,44 @@
     0%   { transform: scale(1.25); opacity: 0; filter: blur(6px); }
     100% { transform: scale(1); opacity: 1; filter: blur(0); }
   }
+  /* ── Divine Dogs jumpscare — a shadow wolf lunging out of the dark ── */
+  .dog-scare {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .dog-scare.play { opacity: 1; }
+  .dog-veil {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 25%, rgba(0,0,0,0.88) 100%);
+    opacity: 0;
+  }
+  .dog-scare.play .dog-veil { animation: dog-veil-in 0.85s ease-out forwards; }
+  .dog-scare svg {
+    width: 46vmin;
+    position: relative;
+    filter: drop-shadow(0 0 34px rgba(0,0,0,0.95)) drop-shadow(0 0 20px rgba(34,204,136,0.35));
+  }
+  .dog-scare.play svg { animation: dog-lunge 0.85s cubic-bezier(0.25, 0.7, 0.3, 1) forwards; }
+  @keyframes dog-lunge {
+    0%   { transform: translateY(85vh) scale(0.12) rotate(-7deg); opacity: 0; }
+    14%  { opacity: 1; }
+    55%  { transform: translateY(4vh) scale(1.1) rotate(3deg); opacity: 1; }
+    72%  { transform: translateY(-1vh) scale(1.6) rotate(-2deg); opacity: 1; }
+    100% { transform: translateY(-6vh) scale(2.3) rotate(0deg); opacity: 0; }
+  }
+  @keyframes dog-veil-in {
+    0% { opacity: 0; } 30% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; }
+  }
+  @keyframes screen-shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-7px, 4px); }
+    40% { transform: translate(6px, -5px); }
+    60% { transform: translate(-5px, -3px); }
+    80% { transform: translate(4px, 5px); }
+  }
+  body.shake { animation: screen-shake 0.4s linear; }
   /* ── Particles ── */
   #particles { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
   /* ── Animations ── */
@@ -604,7 +642,7 @@ let domainCooldowns = {};    // cls -> timestamp until which it can't re-trigger
 let fusionCooldownUntil = 0;
 let demoStep       = 0;
 // Hooks for automated testing (test/e2e.cjs)
-window.__jjk = { detections: 0, domains: 0, fusions: 0 };
+window.__jjk = { detections: 0, domains: 0, fusions: 0, dogs: 0 };
 
 // Optional: a Vercel serverless function can serve the key from an env var.
 const keyPromise = fetch('/api/key')
@@ -684,6 +722,35 @@ function tone({ freq, type = 'sine', delay = 0, dur = 0.3, vol = 0.2, glideTo = 
   osc.start(t0);
   osc.stop(t0 + dur + 0.05);
 }
+// Filtered-noise voice for whooshes, risers, and slashes
+let noiseBuf = null;
+function noiseBuffer() {
+  if (noiseBuf) return noiseBuf;
+  const len = audioCtx.sampleRate * 2;
+  noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return noiseBuf;
+}
+function noiseSfx({ delay = 0, dur = 0.5, from = 800, to = null, vol = 0.2, type = 'bandpass', q = 1 }) {
+  if (!soundOn || !audioCtx) return;
+  const t0 = audioCtx.currentTime + delay;
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuffer();
+  src.loop = true;
+  const f = audioCtx.createBiquadFilter();
+  f.type = type;
+  f.frequency.setValueAtTime(from, t0);
+  f.Q.value = q;
+  if (to) f.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.3, dur * 0.25));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f).connect(g).connect(audioCtx.destination);
+  src.start(t0);
+  src.stop(t0 + dur + 0.1);
+}
 const SFX_BASE = { gojo: 740, sukuna: 200, megumi: 520 };
 function sfxDetect(char) {
   ensureAudio();
@@ -696,6 +763,43 @@ function sfxDomain() {
   tone({ freq: 48, type: 'sine', dur: 2.2, vol: 0.5, glideTo: 36 });
   tone({ freq: 96, type: 'sine', delay: 0.05, dur: 1.6, vol: 0.25 });
   tone({ freq: 1400, type: 'sawtooth', delay: 0.1, dur: 1.2, vol: 0.05, glideTo: 220 });
+}
+// Unlimited Void score, synced to the warp: rising sub + accelerating
+// noise-riser through the tunnel, then a bright open chord and airy
+// shimmer right as the screen floods white (~82% in).
+function sfxGojoDomain(durMs) {
+  ensureAudio();
+  if (!soundOn || !audioCtx) return;
+  const dur = durMs / 1000;
+  tone({ freq: 44, type: 'sine', dur: dur * 0.8, vol: 0.42, glideTo: 100 });
+  noiseSfx({ delay: 0.1, dur: dur * 0.75, from: 180, to: 7000, vol: 0.2, type: 'bandpass', q: 1.1 });
+  tone({ freq: 110, type: 'sawtooth', delay: 0.3, dur: dur * 0.62, vol: 0.05, glideTo: 900 });
+  const at = dur * 0.78;
+  [660, 880, 1320].forEach((f, i) =>
+    tone({ freq: f, type: 'sine', delay: at + i * 0.06, dur: 1.8, vol: 0.15 }));
+  tone({ freq: 2640, type: 'sine', delay: at + 0.12, dur: 1.5, vol: 0.06 });
+  noiseSfx({ delay: at, dur: 1.4, from: 9000, to: 2500, vol: 0.1, type: 'highpass' });
+}
+// Malevolent Shrine score, synced to the backdrop: dissonant low drone,
+// a slow double-thump heartbeat (same 1.2 s period as the visual pulse),
+// and metallic slash shrieks at the exact SHRINE_SLASH_TIMES.
+function sfxSukunaDomain(durMs) {
+  ensureAudio();
+  if (!soundOn || !audioCtx) return;
+  const dur = durMs / 1000;
+  tone({ freq: 55,   type: 'sawtooth', dur: dur * 0.92, vol: 0.14 });
+  tone({ freq: 78.5, type: 'sawtooth', dur: dur * 0.92, vol: 0.11 });
+  tone({ freq: 36,   type: 'sine',     dur: dur * 0.92, vol: 0.34 });
+  noiseSfx({ dur: dur * 0.9, from: 320, to: 130, vol: 0.07, type: 'lowpass' });
+  for (let b = 0; b < dur * 0.85; b += 1.2) {
+    tone({ freq: 44, type: 'sine', delay: b,        dur: 0.26, vol: 0.5,  glideTo: 30 });
+    tone({ freq: 40, type: 'sine', delay: b + 0.22, dur: 0.22, vol: 0.34, glideTo: 28 });
+  }
+  SHRINE_SLASH_TIMES.forEach(st => {
+    const d = st / 1000;
+    noiseSfx({ delay: d, dur: 0.3, from: 7500, to: 1500, vol: 0.16, type: 'highpass' });
+    tone({ freq: 2300, type: 'square', delay: d, dur: 0.09, vol: 0.05, glideTo: 700 });
+  });
 }
 function sfxFusion() {
   ensureAudio();
@@ -982,6 +1086,7 @@ function handlePredictions(predictions) {
     const sign = SIGNS[className];
     triggerBurst(sign ? sign.char : 'sukuna', 44);
     sfxDetect(sign ? sign.char : 'sukuna');
+    if (className === 'Divine-Dogs') dogJumpscare();
     recordSign(className);
   }
   trackDomainHold(className);
@@ -1116,45 +1221,58 @@ function expandDomain(cls) {
     sign.char === 'gojo' ? 'var(--gojo-blue)' : sign.char === 'megumi' ? 'var(--megumi-green)' : 'var(--sukuna-red)';
   document.getElementById('domainRomaji').textContent = sign.romaji;
   overlay.classList.add('show');
-  // Immersive per-domain backdrop: Gojo's Unlimited Void gets a full
-  // space-leap warp; longer overlay to let it breathe.
-  const duration = sign.char === 'gojo' ? 6000 : 4000;
-  if (sign.char === 'gojo') startVoidWarp(duration + 400);
-  else stopVoidWarp();
+  // Immersive per-domain backdrop + score, synced to each other
+  const duration = (sign.char === 'gojo' || sign.char === 'sukuna') ? 6000 : 4000;
+  if (sign.char === 'gojo') {
+    startVoidWarp(duration + 400);
+    sfxGojoDomain(duration + 400);
+  } else if (sign.char === 'sukuna') {
+    startShrineFx(duration + 400);
+    sfxSukunaDomain(duration + 400);
+  } else {
+    stopDomainFx();
+    sfxDomain();
+  }
   triggerBurst(sign.char, 140);
-  sfxDomain();
   // token guards against an earlier domain's hide-timer cutting this one short
   const my = ++domainShowToken;
   setTimeout(() => { if (my === domainShowToken) overlay.classList.remove('show'); }, duration);
 }
 let domainShowToken = 0;
 
-// ═══ Unlimited Void warp — infinite space-leap backdrop (canvas, no assets) ═══
-let voidRaf = null;
-function stopVoidWarp() {
-  if (voidRaf) cancelAnimationFrame(voidRaf);
-  voidRaf = null;
+// ═══ Domain backdrops (canvas, no assets) ═════════════════════════════════════
+let domainFxRaf = null;
+function stopDomainFx() {
+  if (domainFxRaf) cancelAnimationFrame(domainFxRaf);
+  domainFxRaf = null;
   const c = document.getElementById('domainFx');
   c.getContext('2d').clearRect(0, 0, c.width, c.height);
 }
-function startVoidWarp(durationMs) {
+function fxCanvas() {
   const canvas = document.getElementById('domainFx');
-  const ctx = canvas.getContext('2d');
   canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight;
+  return canvas;
+}
+
+// Unlimited Void: accelerating star-leap through a tunnel that ends in
+// blinding white — transcendence into open, infinite space.
+function startVoidWarp(durationMs) {
+  stopDomainFx();
+  const canvas = fxCanvas();
+  const ctx = canvas.getContext('2d');
   const cx = canvas.width / 2, cy = canvas.height / 2;
   const maxR = Math.max(cx, cy);
   const spawn = () => ({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: 0.1 + Math.random() * 0.9 });
   const stars = Array.from({ length: 340 }, spawn);
   const t0 = performance.now();
-  if (voidRaf) cancelAnimationFrame(voidRaf);
   (function frame(now) {
     const t = now - t0;
     if (t > durationMs || !document.getElementById('domainOverlay').classList.contains('show')) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      voidRaf = null;
+      stopDomainFx();
       return;
     }
+    const p = t / durationMs;
     // Deep void: near-black indigo core bleeding into Gojo blue/violet edges
     const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.25);
     bg.addColorStop(0,   '#02030f');
@@ -1170,8 +1288,8 @@ function startVoidWarp(durationMs) {
     band.addColorStop(1,   'rgba(0,200,255,0)');
     ctx.fillStyle = band;
     ctx.fillRect(0, bandY - 70, canvas.width, 140);
-    // Star warp: accelerate from drift into full leap over the first ~1.5 s
-    const speed = 0.006 + Math.min(1, t / 1500) * 0.045;
+    // Star warp: keeps accelerating the whole way — from drift to full leap
+    const speed = 0.006 + Math.min(1, t / 1500) * 0.045 + p * 0.035;
     for (const s of stars) {
       const pz = s.z;
       s.z -= speed;
@@ -1188,8 +1306,140 @@ function startVoidWarp(durationMs) {
       ctx.lineTo(sx, sy);
       ctx.stroke();
     }
-    voidRaf = requestAnimationFrame(frame);
+    // End of the tunnel: a white core grows with the leap, then floods
+    // everything — blinding white, transcended somewhere open.
+    const coreR = maxR * (0.04 + Math.pow(p, 2.4) * 1.7);
+    const coreA = Math.min(1, 0.2 + p * 1.0);
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, coreR));
+    core.addColorStop(0,    `rgba(255,255,255,${coreA.toFixed(3)})`);
+    core.addColorStop(0.55, `rgba(215,242,255,${(coreA * 0.55).toFixed(3)})`);
+    core.addColorStop(1,    'rgba(200,235,255,0)');
+    ctx.fillStyle = core;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (p > 0.82) {
+      const wA = Math.min(1, (p - 0.82) / 0.13);
+      ctx.fillStyle = `rgba(255,255,255,${wA.toFixed(3)})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    domainFxRaf = requestAnimationFrame(frame);
   })(t0);
+}
+
+// Malevolent Shrine: inside something alive and demonic — a breathing
+// blood-dark space, rising embers, drifting miasma, and Dismantle/Cleave
+// slashes tearing across the dark (times shared with the score).
+const SHRINE_SLASH_TIMES = [900, 1500, 2050, 2600, 3300, 3900, 4600];
+function startShrineFx(durationMs) {
+  stopDomainFx();
+  const canvas = fxCanvas();
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const maxR = Math.max(cx, cy);
+  const embers = Array.from({ length: 130 }, () => ({
+    x: Math.random() * W, y: H * (0.4 + Math.random()),
+    vx: (Math.random() - 0.5) * 0.5, vy: 0.5 + Math.random() * 1.7,
+    size: 1 + Math.random() * 2.4, tw: Math.random() * Math.PI * 2,
+  }));
+  const wisps = Array.from({ length: 7 }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    vx: (Math.random() - 0.5) * 0.35, vy: -(0.1 + Math.random() * 0.3),
+    r: 90 + Math.random() * 160,
+  }));
+  const slashes = SHRINE_SLASH_TIMES.map(st => {
+    const ang = Math.random() * Math.PI;
+    const off = (Math.random() - 0.5) * maxR * 0.7;
+    const nx = Math.cos(ang + Math.PI / 2), ny = Math.sin(ang + Math.PI / 2);
+    const mx = cx + nx * off, my = cy + ny * off;
+    const L = maxR * 1.7;
+    return { t: st, x1: mx - Math.cos(ang) * L, y1: my - Math.sin(ang) * L,
+                    x2: mx + Math.cos(ang) * L, y2: my + Math.sin(ang) * L };
+  });
+  const t0 = performance.now();
+  (function frame(now) {
+    const t = now - t0;
+    if (t > durationMs || !document.getElementById('domainOverlay').classList.contains('show')) {
+      stopDomainFx();
+      return;
+    }
+    // Breathing gut: a sharp double-thump heartbeat swells the red core
+    const beatPhase = (t % 1200) / 1200;
+    const beat = Math.pow(Math.max(0, Math.sin(beatPhase * Math.PI * 2)), 6)
+               + 0.5 * Math.pow(Math.max(0, Math.sin((beatPhase - 0.18) * Math.PI * 2)), 6);
+    const bg = ctx.createRadialGradient(cx, cy + H * 0.06, 0, cx, cy, maxR * (1.15 + beat * 0.12));
+    bg.addColorStop(0,    `rgba(${Math.round(70 + beat * 60)},6,10,1)`);
+    bg.addColorStop(0.55, '#1c0306');
+    bg.addColorStop(1,    '#050102');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    // Miasma wisps — slow dark-red smoke drifting upward
+    for (const w of wisps) {
+      w.x += w.vx; w.y += w.vy;
+      if (w.y < -w.r) { w.y = H + w.r; w.x = Math.random() * W; }
+      const g = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, w.r);
+      g.addColorStop(0, 'rgba(90,10,14,0.13)');
+      g.addColorStop(1, 'rgba(40,4,6,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2); ctx.fill();
+    }
+    // Rising embers with flicker
+    for (const e of embers) {
+      e.x += e.vx; e.y -= e.vy; e.tw += 0.15;
+      if (e.y < -6) { e.y = H + 6; e.x = Math.random() * W; }
+      const a = 0.35 + 0.45 * Math.abs(Math.sin(e.tw));
+      ctx.fillStyle = `rgba(255,${90 + Math.round(70 * Math.abs(Math.sin(e.tw)))},40,${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2); ctx.fill();
+    }
+    // Dismantle / Cleave — slashes tearing the dark open
+    for (const s of slashes) {
+      const dt = t - s.t;
+      if (dt < 0 || dt > 300) continue;
+      const a = 1 - dt / 300;
+      ctx.strokeStyle = `rgba(255,235,235,${(a * 0.95).toFixed(3)})`;
+      ctx.lineWidth = 2.5 + a * 2;
+      ctx.shadowColor = 'rgba(255,40,60,0.9)';
+      ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = `rgba(255,34,68,${(a * 0.5).toFixed(3)})`;
+      ctx.lineWidth = 7 + a * 4;
+      ctx.beginPath(); ctx.moveTo(s.x1, s.y1 + 3); ctx.lineTo(s.x2, s.y2 + 3); ctx.stroke();
+    }
+    // Closing vignette — the gut swallows the light
+    if (t > durationMs - 900) {
+      const vA = Math.min(1, (t - (durationMs - 900)) / 700);
+      ctx.fillStyle = `rgba(0,0,0,${(vA * 0.85).toFixed(3)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    domainFxRaf = requestAnimationFrame(frame);
+  })(t0);
+}
+
+// ═══ Divine Dogs jumpscare ════════════════════════════════════════════════════
+let dogCooldownUntil = 0;
+function dogJumpscare() {
+  const now = performance.now();
+  if (now < dogCooldownUntil) return;
+  dogCooldownUntil = now + 8000;
+  window.__jjk.dogs++;
+  const el = document.getElementById('dogScare');
+  el.classList.remove('play'); void el.offsetWidth; el.classList.add('play');
+  document.body.classList.remove('shake'); void document.body.offsetWidth;
+  document.body.classList.add('shake');
+  setTimeout(() => { el.classList.remove('play'); document.body.classList.remove('shake'); }, 950);
+  sfxDogLunge();
+}
+function sfxDogLunge() {
+  ensureAudio();
+  if (!soundOn || !audioCtx) return;
+  // low growl swelling in with the lunge...
+  tone({ freq: 75, type: 'sawtooth', dur: 0.5, vol: 0.26, glideTo: 46 });
+  noiseSfx({ dur: 0.45, from: 260, to: 110, vol: 0.18, type: 'lowpass' });
+  // ...then a sharp double bark as it fills the screen
+  [0.28, 0.46].forEach(d => {
+    tone({ freq: 170, type: 'square', delay: d, dur: 0.11, vol: 0.2, glideTo: 85 });
+    noiseSfx({ delay: d, dur: 0.12, from: 1000, to: 380, vol: 0.16 });
+  });
 }
 
 // ═══ UI helpers ═══════════════════════════════════════════════════════════════
@@ -1320,6 +1570,22 @@ buildSignsGrid();
 buildComboPanels();
 initSoundButton();
 </script>
+<!-- Divine Dogs jumpscare: shadow-wolf silhouette (Ten Shadows shikigami
+     materialize from liquid shadow, so a pure-black wolf with glowing eyes
+     is the canon look) -->
+<div class="dog-scare" id="dogScare" aria-hidden="true">
+  <div class="dog-veil"></div>
+  <svg viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg">
+    <!-- head silhouette -->
+    <path fill="#040404" d="M100 30 L74 36 L58 4 L44 44 L26 64 L30 96 L44 128 L64 148 L78 170 L100 186 L122 170 L136 148 L156 128 L170 96 L174 64 L156 44 L142 4 L126 36 Z"/>
+    <!-- open maw -->
+    <path fill="#2e0808" d="M66 132 L100 122 L134 132 L124 160 L100 150 L76 160 Z"/>
+    <!-- fangs -->
+    <path fill="#e8e8dc" d="M80 130 L88 129 L84 146 Z M120 130 L112 129 L116 146 Z M92 152 L98 151 L95 140 Z M108 152 L102 151 L105 140 Z"/>
+    <!-- glowing eyes -->
+    <path fill="#d6ffe9" d="M58 78 L82 70 L86 82 L64 88 Z M142 78 L118 70 L114 82 L136 88 Z"/>
+  </svg>
+</div>
 <!-- Domain Expansion cinematic overlay -->
 <div class="domain-overlay" id="domainOverlay">
   <canvas id="domainFx"></canvas>
