@@ -21,13 +21,15 @@ Because inferencejs runs the model client-side (TensorFlow.js in a web worker), 
 
 The model recognizes the following five hand signs from the [trained dataset](https://universe.roboflow.com/jjk-doyjq/jujutsu-kaisen-hand-signs). All five are real seals from the series; kanji, romaji and lore are verified against the [Jujutsu Kaisen Wiki](https://jujutsu-kaisen.fandom.com/) and Japanese sources.
 
-| Model class | Technique | Kanji | Romaji | Character |
+| Model label | Technique | Kanji | Romaji | Character |
 |---|---|---|---|---|
-| `Gojo-Domain-Expansion` | Unlimited Void | 無量空処 | Muryōkūsho | Gojo Satoru |
-| `Sukuna-Domain-Expansion` | Malevolent Shrine | 伏魔御廚子 | Fukuma Mizushi | Ryomen Sukuna |
-| `Divine-Dogs` | Ten Shadows — Divine Dogs | 玉犬 | Gyokuken | Fushiguro Megumi |
-| `Nue` | Ten Shadows — Nue | 鵺 | Nue | Fushiguro Megumi |
-| `Gama` | Ten Shadows — Toad | 蝦蟇 | Gama | Fushiguro Megumi |
+| `gojo` | Unlimited Void | 無量空処 | Muryōkūsho | Gojo Satoru |
+| `sukuna` | Malevolent Shrine | 伏魔御廚子 | Fukuma Mizushi | Ryomen Sukuna |
+| `wolf` | Ten Shadows — Divine Dogs | 玉犬 | Gyokuken | Fushiguro Megumi |
+| `nue` | Ten Shadows — Nue | 鵺 | Nue | Fushiguro Megumi |
+| `toad` | Ten Shadows — Toad | 蝦蟇 | Gama | Fushiguro Megumi |
+
+The app maps these raw labels onto full technique entries via the `CLASS_ALIASES` table in `index.html` — if you retrain with different label spellings, update that table.
 
 ### Special interactions (canon)
 

@@ -947,13 +947,17 @@ function handlePredictions(predictions) {
     return;
   }
   emptyStreak = 0;
-  const best       = [...predictions].sort((a, b) => b.confidence - a.confidence)[0];
+  const sorted     = [...predictions].sort((a, b) => b.confidence - a.confidence);
+  const best       = sorted[0];
   const confidence = Math.round(best.confidence * 100);
   const className  = resolveClass(best.class);
   // Always surface the model's best guess — even below the trigger threshold —
-  // so weak/borderline signs are visible while tuning sensitivity.
-  const guess = SIGNS[className] ? SIGNS[className].name : className;
-  document.getElementById('confLabelName').textContent = ('RESONANCE · ' + guess).toUpperCase();
+  // so weak/borderline signs are visible while tuning sensitivity. Show the
+  // runner-up too: useful when two seals are being confused.
+  const dispName = c => { const k = resolveClass(c); return (SIGNS[k] ? SIGNS[k].name : k).toUpperCase(); };
+  let label = 'RESONANCE · ' + dispName(best.class);
+  if (sorted[1]) label += ` (ALT ${dispName(sorted[1].class)} ${Math.round(sorted[1].confidence * 100)}%)`;
+  document.getElementById('confLabelName').textContent = label;
   document.getElementById('confStrip').classList.add('show');
   document.getElementById('confFill').style.width = confidence + '%';
   document.getElementById('confPct').textContent  = confidence + '%';
@@ -980,15 +984,25 @@ function handlePredictions(predictions) {
   }
   trackDomainHold(className);
 }
-// Tolerate label-spelling drift between the trained model and our keys
-// (case / separator differences), since the class list couldn't be
-// re-verified against the live Roboflow API.
+// Map the model's raw labels onto our sign keys. The trained dataset uses
+// short lowercase labels (wolf / gojo / sukuna / toad / nue — per the
+// Roboflow Universe class list), while this app keys signs by technique;
+// normalized spellings of our own keys are also accepted.
+const CLASS_ALIASES = {
+  gojo:   'Gojo-Domain-Expansion',
+  sukuna: 'Sukuna-Domain-Expansion',
+  wolf:   'Divine-Dogs',
+  dog:    'Divine-Dogs',
+  toad:   'Gama',
+  frog:   'Gama',
+};
 const NORM_LOOKUP = Object.fromEntries(
   Object.keys(SIGNS).map(k => [k.toLowerCase().replace(/[^a-z0-9]/g, ''), k]));
 function resolveClass(raw) {
   if (!raw) return raw;
   if (SIGNS[raw]) return raw;
-  return NORM_LOOKUP[String(raw).toLowerCase().replace(/[^a-z0-9]/g, '')] || raw;
+  const norm = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return NORM_LOOKUP[norm] || CLASS_ALIASES[norm] || raw;
 }
 
 // ═══ Sequence engine — canon extension techniques ═════════════════════════════
