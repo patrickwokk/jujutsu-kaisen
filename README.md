@@ -76,10 +76,8 @@ BASE_URL=http://127.0.0.1:3111 node test/e2e.cjs
 
 ## Improving Detection Accuracy
 
-The app gives you two live tuning tools:
-
 - **Always-on resonance readout** — the bar over the camera shows the model's current best guess and confidence *even below the trigger threshold*, so you can tell "predicted at 35%, threshold too high" apart from "not predicted at all".
-- **TRIGGER THRESHOLD slider** — the minimum confidence a prediction needs to fire (default 40%). Lower it to catch weak signs; raise it to suppress false positives.
+- The trigger threshold is fixed at **30%** (`confThreshold` in `index.html`), tuned from real-camera testing.
 
 Note: inference always runs on horizontally-mirrored frames (`MIRROR_INFERENCE` in `index.html`) — real-camera testing showed the training images are mirrored relative to the raw webcam frame, and all signs detect better flipped. If you retrain with unmirrored data, set that constant to `false`.
 

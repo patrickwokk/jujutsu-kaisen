@@ -263,12 +263,6 @@
     transition: border-color 0.2s, background 0.2s;
   }
   .icon-btn:hover { border-color: var(--gold); background: rgba(212,160,23,0.08); }
-  .tune-row {
-    display: flex; align-items: center; gap: 10px;
-    font-size: 10px; letter-spacing: 0.2em; color: var(--muted);
-  }
-  .tune-row input[type=range] { width: 140px; accent-color: var(--crimson); }
-  .tune-row #confSliderVal { color: var(--gold); min-width: 34px; }
   /* ── Result card ── */
   .result-card {
     width: 100%;
@@ -399,7 +393,8 @@
     transition: opacity 0.35s ease;
   }
   .domain-overlay.show { opacity: 1; }
-  .domain-inner { text-align: center; }
+  #domainFx { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .domain-inner { text-align: center; position: relative; z-index: 1; }
   .domain-overlay.show .domain-inner { animation: domain-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
   .domain-ritual { font-size: clamp(1.2rem, 5vw, 2rem); font-weight: 700; letter-spacing: 0.5em; color: var(--text); text-shadow: 0 0 24px var(--domain-text-glow, rgba(255,255,255,0.4)); }
   .domain-ritual-en { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.5em; color: var(--muted); margin-top: 6px; }
@@ -465,11 +460,6 @@
     <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
     <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Toggle sound effects">🔊</button>
   </div>
-  <div class="tune-row" title="Minimum confidence a prediction needs to trigger. Lower = catches weaker signs, higher = fewer false positives.">
-    <span>TRIGGER THRESHOLD</span>
-    <input type="range" id="confSlider" min="20" max="80" step="5">
-    <span id="confSliderVal">40%</span>
-  </div>
   <!-- Result -->
   <div class="result-card" id="resultCard">
     <div class="idle-msg" id="idleMsg">
@@ -498,8 +488,7 @@
     ① Allow camera access and hold a sign steadily in frame, palms toward the camera. Good even lighting and a plain background help a lot.<br>
     ② <strong>Domain Expansion:</strong> hold Gojo's or Sukuna's seal for ~2.5 seconds to expand your domain.<br>
     ③ <strong>Extension technique:</strong> weave Toad (蝦蟇) and then Nue (鵺) within 8 seconds to fuse them into Seiteishirazu.<br>
-    ④ The bar on the camera always shows the model's current best guess and its confidence — if a sign hovers just under the trigger level, lower the <strong>TRIGGER THRESHOLD</strong> slider.<br>
-    ⑤ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
+    ④ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
   </div>
 </main>
 <footer>
@@ -519,8 +508,8 @@ const RF_VERSION  = 1;
 // weight download). Can be overridden by the optional /api/key Vercel function.
 const RF_FALLBACK_KEY = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
 const DETECT_INTERVAL_MS = 800;
-// Detection threshold, adjustable via the TRIGGER THRESHOLD slider (persisted).
-let confThreshold = parseFloat(localStorage.getItem('jjkConf') || '0.4');
+// Fixed detection trigger threshold (bias-adjusted score required to fire).
+const confThreshold = 0.30;
 // Feed horizontally-flipped frames to the model. The training images are
 // mirrored relative to the raw camera frame (real-camera testing showed all
 // signs detect better flipped), so this is always on.
@@ -944,17 +933,6 @@ async function inferInput(video) {
   flipCtx.restore();
   return await createImageBitmap(flipCanvas);
 }
-function initTuning() {
-  const slider = document.getElementById('confSlider');
-  slider.value = Math.round(confThreshold * 100);
-  document.getElementById('confSliderVal').textContent = Math.round(confThreshold * 100) + '%';
-  slider.oninput = () => {
-    confThreshold = slider.value / 100;
-    localStorage.setItem('jjkConf', String(confThreshold));
-    document.getElementById('confSliderVal').textContent = slider.value + '%';
-  };
-}
-
 function handlePredictions(predictions) {
   updateComboUI();
   if (!predictions || predictions.length === 0) {
@@ -1138,9 +1116,80 @@ function expandDomain(cls) {
     sign.char === 'gojo' ? 'var(--gojo-blue)' : sign.char === 'megumi' ? 'var(--megumi-green)' : 'var(--sukuna-red)';
   document.getElementById('domainRomaji').textContent = sign.romaji;
   overlay.classList.add('show');
+  // Immersive per-domain backdrop: Gojo's Unlimited Void gets a full
+  // space-leap warp; longer overlay to let it breathe.
+  const duration = sign.char === 'gojo' ? 6000 : 4000;
+  if (sign.char === 'gojo') startVoidWarp(duration + 400);
+  else stopVoidWarp();
   triggerBurst(sign.char, 140);
   sfxDomain();
-  setTimeout(() => overlay.classList.remove('show'), 4000);
+  // token guards against an earlier domain's hide-timer cutting this one short
+  const my = ++domainShowToken;
+  setTimeout(() => { if (my === domainShowToken) overlay.classList.remove('show'); }, duration);
+}
+let domainShowToken = 0;
+
+// ═══ Unlimited Void warp — infinite space-leap backdrop (canvas, no assets) ═══
+let voidRaf = null;
+function stopVoidWarp() {
+  if (voidRaf) cancelAnimationFrame(voidRaf);
+  voidRaf = null;
+  const c = document.getElementById('domainFx');
+  c.getContext('2d').clearRect(0, 0, c.width, c.height);
+}
+function startVoidWarp(durationMs) {
+  const canvas = document.getElementById('domainFx');
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const maxR = Math.max(cx, cy);
+  const spawn = () => ({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: 0.1 + Math.random() * 0.9 });
+  const stars = Array.from({ length: 340 }, spawn);
+  const t0 = performance.now();
+  if (voidRaf) cancelAnimationFrame(voidRaf);
+  (function frame(now) {
+    const t = now - t0;
+    if (t > durationMs || !document.getElementById('domainOverlay').classList.contains('show')) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      voidRaf = null;
+      return;
+    }
+    // Deep void: near-black indigo core bleeding into Gojo blue/violet edges
+    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.25);
+    bg.addColorStop(0,   '#02030f');
+    bg.addColorStop(0.6, '#060b2a');
+    bg.addColorStop(1,   '#12063a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // The void's luminous horizon band
+    const bandY = cy + Math.sin(t / 900) * 8;
+    const band = ctx.createLinearGradient(0, bandY - 70, 0, bandY + 70);
+    band.addColorStop(0,   'rgba(0,200,255,0)');
+    band.addColorStop(0.5, 'rgba(160,230,255,0.16)');
+    band.addColorStop(1,   'rgba(0,200,255,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(0, bandY - 70, canvas.width, 140);
+    // Star warp: accelerate from drift into full leap over the first ~1.5 s
+    const speed = 0.006 + Math.min(1, t / 1500) * 0.045;
+    for (const s of stars) {
+      const pz = s.z;
+      s.z -= speed;
+      if (s.z <= 0.03) { Object.assign(s, spawn()); s.z = 1; continue; }
+      const sx = cx + (s.x / s.z) * maxR * 0.95;
+      const sy = cy + (s.y / s.z) * maxR * 0.95;
+      const px = cx + (s.x / pz) * maxR * 0.95;
+      const py = cy + (s.y / pz) * maxR * 0.95;
+      const a = Math.min(1, (1 - s.z) * 1.3);
+      ctx.strokeStyle = `rgba(190,235,255,${a.toFixed(3)})`;
+      ctx.lineWidth = Math.max(0.5, (1 - s.z) * 2.6);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+    }
+    voidRaf = requestAnimationFrame(frame);
+  })(t0);
 }
 
 // ═══ UI helpers ═══════════════════════════════════════════════════════════════
@@ -1179,9 +1228,11 @@ function showIdle() {
   lastDetBox = null;
 }
 function highlightChip(name) {
+  // deliberately no auto-scroll on detection — it yanked the camera
+  // (and the user's face) out of view
   document.querySelectorAll('.sign-chip').forEach(c => c.classList.remove('lit'));
   const chip = document.getElementById('chip-' + name);
-  if (chip) { chip.classList.add('lit'); chip.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  if (chip) chip.classList.add('lit');
 }
 
 // ═══ Demo mode — simulated predictions to preview every effect ════════════════
@@ -1268,10 +1319,10 @@ function animParticles() {
 buildSignsGrid();
 buildComboPanels();
 initSoundButton();
-initTuning();
 </script>
 <!-- Domain Expansion cinematic overlay -->
 <div class="domain-overlay" id="domainOverlay">
+  <canvas id="domainFx"></canvas>
   <div class="domain-inner">
     <div class="domain-ritual">領域展開</div>
     <div class="domain-ritual-en">DOMAIN EXPANSION</div>
