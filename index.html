@@ -1223,7 +1223,7 @@ function startVoidWarp(durationMs) {
     // The white light at the tunnel's end — starts as a pinpoint, swells
     // faster and faster, and almost engulfs the screen by the end
     const p = Math.min(1, t / durationMs);
-    const rimR = 8 + Math.hypot(cx, cy) * 0.96 * Math.pow(p, 2.1);
+    const rimR = 8 + Math.hypot(cx, cy) * 1.0 * Math.pow(p, 1.85);
     const light = ctx.createRadialGradient(cx, cy, 0, cx, cy, rimR);
     light.addColorStop(0,    'rgba(255,255,255,1)');
     light.addColorStop(0.8,  'rgba(255,255,255,0.96)');
