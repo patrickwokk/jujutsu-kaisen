@@ -1195,20 +1195,9 @@ function startVoidWarp(durationMs) {
     bg.addColorStop(1,   '#12063a');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // The void's horizon — a blazing white band, the somewhere-beyond
-    const bandY = cy + Math.sin(t / 900) * 8;
-    const glow = ctx.createLinearGradient(0, bandY - 90, 0, bandY + 90);
-    glow.addColorStop(0,   'rgba(255,255,255,0)');
-    glow.addColorStop(0.5, 'rgba(255,255,255,0.32)');
-    glow.addColorStop(1,   'rgba(255,255,255,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, bandY - 90, canvas.width, 180);
-    const core = ctx.createLinearGradient(0, bandY - 12, 0, bandY + 12);
-    core.addColorStop(0,   'rgba(255,255,255,0)');
-    core.addColorStop(0.5, 'rgba(255,255,255,0.95)');
-    core.addColorStop(1,   'rgba(255,255,255,0)');
-    ctx.fillStyle = core;
-    ctx.fillRect(0, bandY - 12, canvas.width, 24);
+    // The end of the tunnel: a small white light that grows and grows
+    // until it almost engulfs the whole screen — drawn after the stars
+    // below, see the bottom of this frame callback.
     // Star warp: accelerate from drift into full leap over the first ~1.5 s
     const speed = 0.006 + Math.min(1, t / 1500) * 0.045;
     for (const s of stars) {
@@ -1227,6 +1216,18 @@ function startVoidWarp(durationMs) {
       ctx.lineTo(sx, sy);
       ctx.stroke();
     }
+    // The white light at the tunnel's end — starts as a pinpoint, swells
+    // faster and faster, and almost engulfs the screen by the end
+    const p = t / durationMs;
+    const rimR = 8 + Math.hypot(cx, cy) * 0.96 * Math.pow(p, 2.1);
+    const light = ctx.createRadialGradient(cx, cy, 0, cx, cy, rimR);
+    light.addColorStop(0,    'rgba(255,255,255,1)');
+    light.addColorStop(0.8,  'rgba(255,255,255,0.96)');
+    light.addColorStop(1,    'rgba(255,255,255,0)');
+    ctx.fillStyle = light;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rimR, 0, Math.PI * 2);
+    ctx.fill();
     voidRaf = requestAnimationFrame(frame);
   })(t0);
 }
