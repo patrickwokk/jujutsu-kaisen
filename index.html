@@ -410,13 +410,9 @@
     position: fixed; inset: 0; z-index: 70;
     display: none;
     pointer-events: none;
-    background: rgba(0,0,0,0);
-    transition: background 0.25s;
+    /* no veil — the page stays fully visible, only the dog appears over it */
   }
-  .dog-strike.play {
-    display: block;
-    background: rgba(0,0,0,0.45);
-  }
+  .dog-strike.play { display: block; }
   .dog-strike video {
     width: 100%; height: 100%;
     object-fit: cover;
@@ -1243,7 +1239,10 @@ function startVoidWarp(durationMs) {
     // The white light at the tunnel's end — starts as a pinpoint, swells
     // faster and faster, and almost engulfs the screen by the end
     const p = Math.min(1, t / durationMs);
-    const rimR = 8 + Math.hypot(cx, cy) * 1.0 * Math.pow(p, 1.85);
+    // same starting pace as before (p^1.85), plus an exponential kicker
+    // that takes over as the circle grows — the bigger it gets, the
+    // faster it swells, fully engulfing the screen around ~83% through
+    const rimR = 8 + Math.hypot(cx, cy) * (Math.pow(p, 1.85) + 0.8 * Math.pow(p, 5));
     const light = ctx.createRadialGradient(cx, cy, 0, cx, cy, rimR);
     light.addColorStop(0,    'rgba(255,255,255,1)');
     light.addColorStop(0.8,  'rgba(255,255,255,0.96)');
@@ -1274,10 +1273,16 @@ function dogStrike() {
   const done = () => wrap.classList.remove('play');
   wrap.classList.add('play');
   vid.currentTime = 0;
+  // play the clip's own audio (it's the drama) unless the app is muted;
+  // activation required a click, so unmuted playback is allowed
+  vid.muted = !soundOn;
+  vid.volume = 1;
   vid.addEventListener('ended', done, { once: true });
-  vid.play().catch(err => {
-    console.warn('divine dog clip failed to play:', err);
-    done();
+  vid.play().catch(() => {
+    // some browsers may still veto audible autoplay — retry muted so the
+    // visual always lands
+    vid.muted = true;
+    vid.play().catch(err => { console.warn('divine dog clip failed to play:', err); done(); });
   });
   // never leave the overlay stuck if 'ended' doesn't fire
   setTimeout(done, 10000);
@@ -1413,7 +1418,7 @@ initSoundButton();
 </script>
 <!-- Divine Dogs strike clip (black background, screen-blended) -->
 <div class="dog-strike" id="dogStrike" aria-hidden="true">
-  <video id="dogVideo" src="assets/divine-dog.mp4" muted playsinline preload="auto"></video>
+  <video id="dogVideo" src="assets/divine-dog.mp4" playsinline preload="auto"></video>
 </div>
 <!-- Domain Expansion cinematic overlay -->
 <div class="domain-overlay" id="domainOverlay">
