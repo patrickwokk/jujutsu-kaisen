@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JJK Hand Sign Detector</title>
+<meta name="description" content="A fan-made Jujutsu Kaisen hand sign detector. Make a cursed technique seal at your webcam and it tells you which one it is.">
+<meta property="og:title" content="Jujutsu Kaisen Hand Sign Detector">
+<meta property="og:description" content="Make a cursed technique seal at your webcam and it tells you which one it is. Runs in your browser.">
+<meta property="og:type" content="website">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+JP:wght@400;700&display=swap');
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -263,6 +267,12 @@
     transition: border-color 0.2s, background 0.2s;
   }
   .icon-btn:hover { border-color: var(--gold); background: rgba(212,160,23,0.08); }
+  .demo-link {
+    font-size: 10px; letter-spacing: 0.2em; color: var(--muted);
+    text-decoration: none; border-bottom: 1px solid rgba(240,232,208,0.2);
+    padding-bottom: 2px; transition: color 0.2s, border-color 0.2s;
+  }
+  .demo-link:hover { color: var(--gold); border-color: var(--gold); }
   /* ── Result card ── */
   .result-card {
     width: 100%;
@@ -474,6 +484,7 @@
     <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
     <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Toggle sound effects">🔊</button>
   </div>
+  <a class="demo-link" id="demoLink" href="?demo=1">NO CAMERA? WATCH THE DEMO</a>
   <!-- Result -->
   <div class="result-card" id="resultCard">
     <div class="idle-msg" id="idleMsg">
@@ -500,9 +511,9 @@
   <div class="howto">
     <strong>HOW TO USE</strong><br>
     ① Allow camera access and hold a sign steadily in frame, palms toward the camera. Good even lighting and a plain background help a lot.<br>
-    ② <strong>Domain Expansion:</strong> hold Gojo's or Sukuna's seal for ~2.5 seconds to expand your domain.<br>
+    ② <strong>Domain Expansion:</strong> hold Gojo's or Sukuna's seal for ~2 seconds to expand your domain.<br>
     ③ <strong>Extension technique:</strong> weave Toad (蝦蟇) and then Nue (鵺) within 8 seconds to fuse them into Seiteishirazu.<br>
-    ④ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
+    ④ No camera? The demo link under the button previews every effect.
   </div>
 </main>
 <footer>
@@ -511,7 +522,7 @@
   no images ever leave your device.
 </footer>
 <!-- MediaPipe Hands (skeleton overlay) -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
 <!-- Roboflow inferencejs (in-browser WebGL inference) -->
 <script src="https://cdn.jsdelivr.net/npm/inferencejs@1.2.3/dist/inference.js"></script>
 <script>
@@ -521,9 +532,21 @@ const RF_VERSION  = 1;
 // Publishable key (browser-safe by design: only authorizes the one-time model
 // weight download). Can be overridden by the optional /api/key Vercel function.
 const RF_FALLBACK_KEY = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
-const DETECT_INTERVAL_MS = 800;
+const DETECT_INTERVAL_MS = 300;  // pause between detections
+const DEMO_INTERVAL_MS   = 800;  // pacing of the scripted demo
+// inferencejs drops every prediction under 50% unless told otherwise, which
+// kept weak signs away from the threshold and class weights below. Ask for
+// everything from 15% up and decide here instead.
+const ENGINE_MIN_CONF = 0.15;
 // Fixed detection trigger threshold (bias-adjusted score required to fire).
 const confThreshold = 0.30;
+// A prediction the model is at least this sure of fires right away. Weaker
+// ones (down to confThreshold) must repeat on consecutive frames first, so a
+// single shaky frame can't set off a sign.
+const INSTANT_CONF   = 0.50;
+const CONFIRM_FRAMES = 2;
+// After this long without a sign, the same sign may fire again.
+const REARM_MS = 1500;
 // Feed horizontally-flipped frames to the model. The training images are
 // mirrored relative to the raw camera frame (real-camera testing showed all
 // signs detect better flipped), so this is always on.
@@ -588,7 +611,8 @@ const CHAR_GLOW = {
   sukuna: ['rgba(255,34,68,0.28)',  'rgba(255,34,68,0.6)'],
   megumi: ['rgba(34,204,136,0.28)', 'rgba(34,204,136,0.6)'],
 };
-const DOMAIN_HOLD_HITS = 3;      // consecutive detections (~800 ms apart) to expand a domain
+const DOMAIN_HOLD_MS  = 2000;    // how long a domain seal must be held to expand
+const HOLD_GRACE_MS   = 900;     // a hold survives this long without seeing its seal
 const DOMAIN_COOLDOWN_MS = 12000;
 const FUSION_COOLDOWN_MS = 10000;
 // Per-class confidence weighting to rebalance model bias: the trained model
@@ -616,7 +640,9 @@ let lastClass      = null;
 let detectionTimer = null;
 let lastDetBox     = null;   // {x,y,w,h,color,until} in video pixel coords
 let signHistory    = [];     // transitions: {cls, t}
-let domainStreak   = { cls: null, count: 0, misses: 0, wrong: 0 };
+let pendingSign    = { cls: null, count: 0 };  // weak sign waiting to be confirmed
+let lastHitAt      = 0;      // when a sign last counted
+let domainStreak   = { cls: null, since: 0, lastSeen: 0 };
 let domainCooldowns = {};    // cls -> timestamp until which it can't re-trigger
 let fusionCooldownUntil = 0;
 let demoStep       = 0;
@@ -624,10 +650,13 @@ let demoStep       = 0;
 window.__jjk = { detections: 0, domains: 0, fusions: 0, dogs: 0 };
 
 // Optional: a Vercel serverless function can serve the key from an env var.
-const keyPromise = fetch('/api/key')
-  .then(r => (r.ok ? r.json() : null))
-  .then(d => (d && d.key) || null)
-  .catch(() => null);
+// GitHub Pages has no such function, so don't ask there.
+const keyPromise = location.hostname.endsWith('github.io')
+  ? Promise.resolve(null)
+  : fetch('/api/key')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => (d && d.key) || null)
+      .catch(() => null);
 
 // ═══ Init ═════════════════════════════════════════════════════════════════════
 function kanjiSize(len, base, shrink, min) {
@@ -767,6 +796,7 @@ async function activate() {
     cameraActive = true;
     modelReady = true;
     demoStep = 0;
+    warmDogClip();
     startDetectionLoop();
     startParticles();
     pill.className = 'status-pill active';
@@ -784,12 +814,13 @@ async function activate() {
     video.srcObject = mediaStream;
     await video.play();
   } catch (e) {
-    pill.textContent = 'CAMERA ACCESS DENIED';
+    pill.textContent = cameraErrorText(e);
     btn.disabled = false;
     btn.textContent = 'ACTIVATE CURSED VISION';
     return;
   }
   cameraActive = true;
+  warmDogClip();
 
   // 2. Load Roboflow model via inferencejs (runs fully in-browser via WebGL;
   //    the publishable key is only used to download the weights once)
@@ -806,7 +837,8 @@ async function activate() {
     const { InferenceEngine } = window.inferencejs;
     const remoteKey = await keyPromise;
     inferEngine = new InferenceEngine();
-    rfWorkerId = await inferEngine.startWorker(RF_MODEL, RF_VERSION, remoteKey || RF_FALLBACK_KEY);
+    rfWorkerId = await inferEngine.startWorker(RF_MODEL, RF_VERSION, remoteKey || RF_FALLBACK_KEY,
+      [{ scoreThreshold: ENGINE_MIN_CONF }]);
   } catch (e) {
     clearInterval(fakeInterval);
     pill.textContent = 'MODEL LOAD FAILED';
@@ -834,6 +866,20 @@ async function activate() {
   btn.onclick = deactivate;
 }
 
+// The Divine Dogs clip is only fetched once the detector is switched on, so
+// it doesn't slow the first page load but is ready when the sign lands.
+function warmDogClip() {
+  const vid = document.getElementById('dogVideo');
+  if (vid.preload !== 'auto') { vid.preload = 'auto'; vid.load(); }
+}
+
+function cameraErrorText(e) {
+  if (!navigator.mediaDevices) return 'CAMERA NEEDS HTTPS OR LOCALHOST';
+  if (e && e.name === 'NotFoundError') return 'NO CAMERA FOUND';
+  if (e && e.name === 'NotReadableError') return 'CAMERA IS IN USE BY ANOTHER APP';
+  return 'CAMERA ACCESS DENIED';
+}
+
 function stopCamera() {
   cameraActive = false;
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
@@ -853,8 +899,8 @@ function deactivate() {
   if (mpHands) { try { mpHands.close(); } catch (e) {} mpHands = null; }
   lastClass = null;
   signHistory = [];
-  domainStreak = { cls: null, count: 0, misses: 0 };
-  hideDomainCharge();
+  pendingSign = { cls: null, count: 0 };
+  resetDomainStreak();
   document.getElementById('statusPill').className = 'status-pill';
   document.getElementById('statusPill').textContent = 'INACTIVE';
   document.getElementById('startBtn').textContent = 'ACTIVATE CURSED VISION';
@@ -876,7 +922,7 @@ function setupMediaPipe() {
     [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
     [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]
   ];
-  mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}` });
   // Most JJK seals are two-handed (Sukuna's Enmaten seal, the shadow puppets) —
   // track both hands.
   mpHands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
@@ -942,13 +988,14 @@ function startDetectionLoop() {
   runDetection();
 }
 async function runDetection() {
-  if (!cameraActive || !modelReady || detecting) {
+  // nothing to do while busy, or while the tab is in the background
+  if (!cameraActive || !modelReady || detecting || document.hidden) {
     if (cameraActive) detectionTimer = setTimeout(runDetection, DETECT_INTERVAL_MS);
     return;
   }
   if (DEMO_MODE) {
     handlePredictions(nextDemoPredictions());
-    detectionTimer = setTimeout(runDetection, DETECT_INTERVAL_MS);
+    detectionTimer = setTimeout(runDetection, DEMO_INTERVAL_MS);
     return;
   }
   const video = document.getElementById('video');
@@ -967,7 +1014,6 @@ async function runDetection() {
   if (cameraActive) detectionTimer = setTimeout(runDetection, DETECT_INTERVAL_MS);
 }
 
-let emptyStreak = 0;
 let flipCanvas = null, flipCtx = null;
 async function inferInput(video) {
   const { CVImage } = window.inferencejs;
@@ -986,15 +1032,12 @@ async function inferInput(video) {
 }
 function handlePredictions(predictions) {
   updateComboUI();
+  const now = performance.now();
   if (!predictions || predictions.length === 0) {
     document.getElementById('confStrip').classList.remove('show');
-    // brief grace before breaking a domain hold, so one dropped frame doesn't reset it
-    if (domainStreak.cls && ++domainStreak.misses > 1) resetDomainStreak();
-    // after the hand has clearly left frame, allow the same sign to re-fire
-    if (++emptyStreak >= 2) lastClass = null;
+    noSign(now);
     return;
   }
-  emptyStreak = 0;
   const scored = predictions
     .map(p => {
       const cls = resolveClass(p.class);
@@ -1014,7 +1057,16 @@ function handlePredictions(predictions) {
   document.getElementById('confStrip').classList.add('show');
   document.getElementById('confFill').style.width = confidence + '%';
   document.getElementById('confPct').textContent  = confidence + '%';
-  if (scored[0].score < confThreshold) return;
+  if (scored[0].score < confThreshold) { noSign(now); return; }
+  // A confident read counts at once, and so does the sign already showing.
+  // A weak read of a new sign has to repeat before it counts.
+  if (className === pendingSign.cls) pendingSign.count++;
+  else pendingSign = { cls: className, count: 1 };
+  const confirmed = best.confidence >= INSTANT_CONF
+    || className === lastClass
+    || pendingSign.count >= CONFIRM_FRAMES;
+  if (!confirmed) return;
+  lastHitAt = now;
   if (best.bbox) {
     const vw = document.getElementById('video').videoWidth || 640;
     lastDetBox = {
@@ -1022,7 +1074,7 @@ function handlePredictions(predictions) {
       x: MIRROR_INFERENCE ? vw - best.bbox.x : best.bbox.x,
       y: best.bbox.y, w: best.bbox.width, h: best.bbox.height,
       color: best.color || '#d4a017',
-      until: performance.now() + DETECT_INTERVAL_MS * 1.5,
+      until: now + 900,
     };
   }
   window.__jjk.detections++;
@@ -1036,7 +1088,15 @@ function handlePredictions(predictions) {
     if (className === 'Divine-Dogs') dogStrike();
     recordSign(className);
   }
-  trackDomainHold(className);
+  trackDomainHold(className, now);
+}
+// A frame with no sign in it (nothing seen, or nothing above the threshold).
+function noSign(now) {
+  pendingSign = { cls: null, count: 0 };
+  // brief grace before breaking a domain hold, so a dropped frame doesn't reset it
+  if (domainStreak.cls && now - domainStreak.lastSeen > HOLD_GRACE_MS) resetDomainStreak();
+  // after the hand has clearly left frame, allow the same sign to re-fire
+  if (now - lastHitAt > REARM_MS) lastClass = null;
 }
 // Map the model's raw labels onto our sign keys. The trained dataset uses
 // short lowercase labels (wolf / gojo / sukuna / toad / nue — per the
@@ -1117,40 +1177,33 @@ function triggerFusion(ext) {
 }
 
 // ═══ Domain Expansion — hold the seal to expand ═══════════════════════════════
-function trackDomainHold(cls) {
+function trackDomainHold(cls, now) {
   const sign = SIGNS[cls];
   const isDomain = !!(sign && sign.domain);
-  if (domainStreak.cls) {
-    if (cls === domainStreak.cls) {
-      domainStreak.count++;
-      domainStreak.wrong = 0;
-    } else if (++domainStreak.wrong > 1) {
-      // two stray frames in a row — the hold is genuinely broken
-      if (isDomain) domainStreak = { cls, count: 1, misses: 0, wrong: 0 };
-      else { resetDomainStreak(); return; }
-    } else {
-      // grace: a single misread frame pauses the charge instead of
-      // resetting it — model flicker was making domains near-impossible
-      return;
-    }
-  } else if (isDomain) {
-    domainStreak = { cls, count: 1, misses: 0, wrong: 0 };
-  } else {
-    return;
+  if (domainStreak.cls && cls !== domainStreak.cls) {
+    // grace: a brief misread pauses the charge instead of resetting it —
+    // model flicker was making domains near-impossible. A lasting one
+    // means the hold is genuinely broken.
+    if (now - domainStreak.lastSeen <= HOLD_GRACE_MS) return;
+    resetDomainStreak();
   }
-  domainStreak.misses = 0;
+  if (!domainStreak.cls) {
+    if (!isDomain) return;
+    domainStreak = { cls, since: now, lastSeen: now };
+  }
+  domainStreak.lastSeen = now;
   const held = domainStreak.cls;
-  const now = performance.now();
   if (now < (domainCooldowns[held] || 0)) { hideDomainCharge(); return; }
-  showDomainCharge(domainStreak.count / DOMAIN_HOLD_HITS, held);
-  if (domainStreak.count >= DOMAIN_HOLD_HITS) {
+  const frac = (now - domainStreak.since) / DOMAIN_HOLD_MS;
+  showDomainCharge(frac, held);
+  if (frac >= 1) {
     domainCooldowns[held] = now + DOMAIN_COOLDOWN_MS;
     resetDomainStreak();
     expandDomain(held);
   }
 }
 function resetDomainStreak() {
-  domainStreak = { cls: null, count: 0, misses: 0, wrong: 0 };
+  domainStreak = { cls: null, since: 0, lastSeen: 0 };
   hideDomainCharge();
 }
 const CHAR_HEX = { gojo: 'rgba(0,200,255,0.85)', sukuna: 'rgba(255,34,68,0.85)', megumi: 'rgba(34,204,136,0.85)' };
@@ -1434,10 +1487,16 @@ function animParticles() {
 buildSignsGrid();
 buildComboPanels();
 initSoundButton();
+if (DEMO_MODE) {
+  document.getElementById('statusPill').textContent = 'DEMO MODE · PRESS ACTIVATE';
+  const demoLink = document.getElementById('demoLink');
+  demoLink.textContent = 'EXIT THE DEMO';
+  demoLink.href = location.pathname;
+}
 </script>
 <!-- Divine Dogs strike clip (black background, screen-blended) -->
 <div class="dog-strike" id="dogStrike" aria-hidden="true">
-  <video id="dogVideo" src="assets/divine-dog.mp4" playsinline preload="auto"></video>
+  <video id="dogVideo" src="assets/divine-dog.mp4" playsinline preload="none"></video>
 </div>
 <!-- Domain Expansion cinematic overlay -->
 <div class="domain-overlay" id="domainOverlay">

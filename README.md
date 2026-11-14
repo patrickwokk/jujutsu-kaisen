@@ -19,11 +19,11 @@ It's always going to be a work in progress. The detection still misses a lot, so
 ## What happens when you make one
 
 - Every sign shows a card with its kanji, name and a bit of lore, plus a burst of particles in the character's color.
-- **Domain Expansion:** hold Gojo's or Sukuna's seal steady for about 2.5 seconds to play the domain cinematic with sound.
+- **Domain Expansion:** hold Gojo's or Sukuna's seal steady for about 2 seconds to play the domain cinematic with sound.
 - **The Well's Unknown Abyss (不知井底):** make Toad and Nue within 8 seconds of each other and they fuse, like Megumi does against Todo.
 - **Divine Dogs:** a wolf leaps out over the page.
 
-To see the effects without a camera, add `?demo=1` to the end of the address.
+To see the effects without a camera, use the demo link under the button, or add `?demo=1` to the end of the address.
 
 ## How it works
 
@@ -41,6 +41,8 @@ The model is [jujutsu-kaisen-hand-signs](https://universe.roboflow.com/jjk-doyjq
 This is where help counts the most. A few things worth knowing:
 
 - The bar over the camera shows the model's best guess and its confidence, even below the 30% trigger threshold (`confThreshold` in `index.html`). That tells you whether a sign is barely missing or not recognized at all.
+- inferencejs throws away every prediction under 50% unless you tell it otherwise, so the app asks for everything from 15% up (`ENGINE_MIN_CONF`) and decides for itself.
+- A sign the model is at least 50% sure of counts right away. A weaker one has to show up two frames in a row first (`INSTANT_CONF`, `CONFIRM_FRAMES`), so one shaky frame can't set off a sign.
 - Frames are mirrored before detection (`MIRROR_INFERENCE`), because the training images are mirrored compared to a raw webcam.
 - `CLASS_BIAS` evens out the model's habits. It over-predicts Gojo's seal and under-predicts Sukuna's and Divine Dogs.
 - If a sign isn't recognized at all, the model needs more training data for it. Turn off horizontal flip augmentation when you train, because the seals are left and right specific. After retraining, bump `RF_VERSION` in `index.html`.
