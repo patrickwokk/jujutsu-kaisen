@@ -17,7 +17,7 @@
     --muted: #8a7a6a;
     --gojo-blue: #00c8ff;
     --sukuna-red: #ff2244;
-    --nobara-pink: #ff6eb4;
+    --megumi-green: #22cc88;
   }
   body {
     background: var(--darker);
@@ -127,6 +127,8 @@
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
+    /* same crop as the video, so landmarks stay aligned on non-4:3 cameras */
+    object-fit: cover;
     transform: scaleX(-1);
     pointer-events: none;
     z-index: 4;
@@ -174,6 +176,48 @@
     width: 0%;
     transition: width 0.4s ease;
   }
+  /* domain charge — big centered channeling indicator */
+  .domain-charge {
+    position: absolute;
+    left: 8%; right: 8%;
+    top: 50%; transform: translateY(-50%);
+    z-index: 11;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .domain-charge.show { opacity: 1; }
+  .domain-charge .charge-label {
+    font-size: clamp(12px, 2.6vw, 15px); font-weight: 700;
+    letter-spacing: 0.3em; color: var(--charge-color, var(--gold));
+    margin-bottom: 10px;
+    text-shadow: 0 0 16px var(--charge-color, rgba(212,160,23,0.9)), 0 2px 8px rgba(0,0,0,0.95);
+    animation: charge-pulse 0.9s ease-in-out infinite;
+  }
+  .domain-charge .charge-track {
+    height: 10px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--charge-color, rgba(212,160,23,0.5));
+    border-radius: 6px; overflow: hidden;
+    box-shadow: 0 0 18px rgba(0,0,0,0.6);
+  }
+  .domain-charge .charge-fill  {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--charge-color, var(--gold)), #fff);
+    border-radius: 6px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 22px var(--charge-color, rgba(212,160,23,0.9));
+  }
+  @keyframes charge-pulse {
+    0%, 100% { opacity: 0.82; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.04); }
+  }
+  .camera-frame.channeling {
+    box-shadow: 0 0 34px var(--charge-color, rgba(212,160,23,0.55)),
+                inset 0 0 60px rgba(0,0,0,0.4);
+    transition: box-shadow 0.4s;
+  }
   /* confidence strip */
   .conf-strip {
     position: absolute;
@@ -190,7 +234,8 @@
   }
   .conf-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
   .conf-fill  { height: 100%; background: linear-gradient(90deg, var(--crimson), var(--gold)); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
-  /* ── Start button ── */
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 10px; align-items: stretch; }
   .start-btn {
     background: var(--crimson);
     color: #fff;
@@ -207,6 +252,17 @@
   .start-btn:hover { background: #e01c33; box-shadow: 0 0 20px rgba(192,23,43,0.4); }
   .start-btn:active { transform: scale(0.97); }
   .start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .icon-btn {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(240,232,208,0.2);
+    color: var(--text);
+    width: 44px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .icon-btn:hover { border-color: var(--gold); background: rgba(212,160,23,0.08); }
   /* ── Result card ── */
   .result-card {
     width: 100%;
@@ -224,7 +280,7 @@
   }
   .result-card.glow-red   { border-color: var(--sukuna-red); box-shadow: 0 0 28px rgba(255,34,68,0.13); }
   .result-card.glow-blue  { border-color: var(--gojo-blue);  box-shadow: 0 0 28px rgba(0,200,255,0.12); }
-  .result-card.glow-green { border-color: #22cc88; box-shadow: 0 0 28px rgba(34,204,136,0.12); }
+  .result-card.glow-green { border-color: var(--megumi-green); box-shadow: 0 0 28px rgba(34,204,136,0.12); }
   .result-card::before {
     content: '';
     position: absolute;
@@ -242,19 +298,56 @@
   .idle-text  { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; }
   .sign-kanji {
     font-family: 'Noto Sans JP', sans-serif;
-    font-size: 54px; font-weight: 700;
-    line-height: 1; min-width: 64px; text-align: center;
+    font-weight: 700;
+    line-height: 1.15; min-width: 72px; max-width: 96px; text-align: center;
     color: var(--text);
     transition: all 0.4s;
   }
   .result-info { flex: 1; }
   .result-tag  { font-size: 9px; letter-spacing: 0.3em; color: var(--crimson); margin-bottom: 6px; }
-  .result-name { font-family: 'Cinzel', serif; font-size: clamp(1rem, 3vw, 1.4rem); font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 6px; }
+  .result-name { font-family: 'Cinzel', serif; font-size: clamp(1rem, 3vw, 1.4rem); font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 2px; }
+  .result-romaji { font-size: 11px; color: var(--gold); letter-spacing: 0.15em; margin-bottom: 6px; }
   .result-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  /* ── Combo panel ── */
+  .combo-panel {
+    width: 100%;
+    background: rgba(34,204,136,0.03);
+    border: 1px solid rgba(34,204,136,0.15);
+    border-radius: 4px;
+    padding: 14px 16px;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  .combo-panel.triggered { border-color: var(--megumi-green); box-shadow: 0 0 28px rgba(34,204,136,0.2); }
+  .combo-head { font-size: 9px; letter-spacing: 0.3em; color: var(--megumi-green); margin-bottom: 10px; }
+  .combo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .combo-step, .combo-result {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 8px 12px;
+    text-align: center;
+    transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+  }
+  .combo-step span, .combo-result span { display: block; font-size: 16px; font-weight: 700; }
+  .combo-step small, .combo-result small { font-size: 8px; letter-spacing: 0.15em; color: var(--muted); }
+  .combo-step.lit {
+    border-color: var(--megumi-green);
+    background: rgba(34,204,136,0.1);
+    box-shadow: 0 0 14px rgba(34,204,136,0.25);
+  }
+  .combo-result { border-style: dashed; }
+  .combo-result.lit {
+    border-style: solid;
+    border-color: var(--gold);
+    background: rgba(212,160,23,0.1);
+    box-shadow: 0 0 18px rgba(212,160,23,0.35);
+  }
+  .combo-glue { color: var(--muted); font-size: 14px; }
+  .combo-desc { font-size: 10px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
   /* ── Signs grid ── */
   .signs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
     gap: 7px;
     width: 100%;
   }
@@ -265,10 +358,69 @@
     text-align: center; transition: border-color 0.2s, background 0.2s;
   }
   .sign-chip.lit { border-color: var(--gold); background: rgba(212,160,23,0.08); }
-  .sign-chip .chip-kanji { font-size: 20px; display: block; margin-bottom: 2px; }
-  .sign-chip .chip-name  { font-size: 9px; color: var(--muted); letter-spacing: 0.05em; }
+  .sign-chip .chip-kanji { display: block; margin-bottom: 3px; font-weight: 700; line-height: 1.3; }
+  .sign-chip .chip-name  { font-size: 9px; color: var(--text); letter-spacing: 0.05em; display: block; }
+  .sign-chip .chip-romaji { font-size: 8px; color: var(--muted); letter-spacing: 0.08em; display: block; margin-top: 1px; }
+  /* ── How to ── */
+  .howto {
+    width: 100%;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 4px;
+    padding: 12px 16px;
+  }
+  .howto strong { color: var(--gold); font-weight: 700; letter-spacing: 0.1em; }
+  footer {
+    position: relative; z-index: 1;
+    font-size: 9px; color: var(--muted); opacity: 0.7;
+    text-align: center; padding: 0 16px 24px; line-height: 1.7;
+    max-width: 620px;
+  }
+  /* ── Domain Expansion overlay ── */
+  .domain-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, var(--domain-glow, rgba(192,23,43,0.25)) 0%, rgba(2,1,2,0.94) 68%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  .domain-overlay.show { opacity: 1; }
+  #domainFx { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .domain-inner { text-align: center; position: relative; z-index: 1; }
+  .domain-overlay.show .domain-inner { animation: domain-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .domain-ritual { font-size: clamp(1.2rem, 5vw, 2rem); font-weight: 700; letter-spacing: 0.5em; color: var(--text); text-shadow: 0 0 24px var(--domain-text-glow, rgba(255,255,255,0.4)); }
+  .domain-ritual-en { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.5em; color: var(--muted); margin-top: 6px; }
+  .domain-kanji { font-size: clamp(3rem, 14vw, 6.5rem); font-weight: 700; line-height: 1.1; margin: 24px 0 16px; color: var(--text); text-shadow: 0 0 42px var(--domain-text-glow, rgba(255,255,255,0.55)); }
+  .domain-name { font-family: 'Cinzel', serif; font-size: clamp(1rem, 4vw, 1.6rem); font-weight: 700; letter-spacing: 0.2em; }
+  .domain-romaji { font-size: 11px; letter-spacing: 0.3em; color: var(--gold); margin-top: 8px; }
+  @keyframes domain-in {
+    0%   { transform: scale(1.25); opacity: 0; filter: blur(6px); }
+    100% { transform: scale(1); opacity: 1; filter: blur(0); }
+  }
+  /* ── Divine Dogs strike — clip with black bg, blended over the page ── */
+  .dog-strike {
+    position: fixed; inset: 0; z-index: 70;
+    display: none;
+    pointer-events: none;
+    /* no veil — the page stays fully visible, only the dog appears over it */
+  }
+  .dog-strike.play { display: block; }
+  .dog-strike video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    /* screen blend: black pixels become transparent, the dog floats free */
+    mix-blend-mode: screen;
+  }
   /* ── Particles ── */
-  #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  #particles { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
   /* ── Animations ── */
   @keyframes flash-in {
     0%   { opacity: 0; transform: scale(0.92); }
@@ -304,9 +456,13 @@
       <div class="model-load-bar" id="loadBar">
         <div class="model-load-fill" id="loadFill"></div>
       </div>
+      <div class="domain-charge" id="domainCharge">
+        <div class="charge-label" id="domainChargeLabel">CHANNELING DOMAIN…</div>
+        <div class="charge-track"><div class="charge-fill" id="domainChargeFill"></div></div>
+      </div>
       <div class="conf-strip" id="confStrip">
         <div class="conf-label">
-          <span>CURSED ENERGY RESONANCE</span>
+          <span id="confLabelName">CURSED ENERGY RESONANCE</span>
           <span id="confPct">0%</span>
         </div>
         <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
@@ -314,7 +470,10 @@
     </div>
   </div>
   <!-- Activate -->
-  <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
+  <div class="btn-row">
+    <button class="start-btn" id="startBtn" onclick="activate()">ACTIVATE CURSED VISION</button>
+    <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Toggle sound effects">🔊</button>
+  </div>
   <!-- Result -->
   <div class="result-card" id="resultCard">
     <div class="idle-msg" id="idleMsg">
@@ -324,102 +483,336 @@
     <div id="resultContent" style="display:none; width:100%; align-items:center; gap:20px;">
       <div class="sign-kanji" id="signKanji">—</div>
       <div class="result-info">
-        <div class="result-tag">CURSED SIGN DETECTED</div>
+        <div class="result-tag" id="signTag">CURSED SIGN DETECTED</div>
         <div class="result-name" id="signName">—</div>
+        <div class="result-romaji" id="signRomaji"></div>
         <div class="result-desc" id="signDesc">—</div>
       </div>
     </div>
   </div>
+  <!-- Extension technique (combo) panel -->
+  <div id="comboPanels"></div>
   <!-- Signs reference -->
   <div class="deco-line" style="width:100%;"><div class="deco-diamond"></div></div>
   <div style="font-size:10px; letter-spacing:0.2em; color:var(--muted); width:100%;">KNOWN HAND SIGNS</div>
   <div class="signs-grid" id="signsGrid"></div>
+  <!-- How to -->
+  <div class="howto">
+    <strong>HOW TO USE</strong><br>
+    ① Allow camera access and hold a sign steadily in frame, palms toward the camera. Good even lighting and a plain background help a lot.<br>
+    ② <strong>Domain Expansion:</strong> hold Gojo's or Sukuna's seal for ~2.5 seconds to expand your domain.<br>
+    ③ <strong>Extension technique:</strong> weave Toad (蝦蟇) and then Nue (鵺) within 8 seconds to fuse them into Seiteishirazu.<br>
+    ④ Append <code>?demo=1</code> to the URL to preview every effect without a camera or model.
+  </div>
 </main>
-<!-- MediaPipe -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<footer>
+  Unofficial fan project. Jujutsu Kaisen (呪術廻戦) © Gege Akutami / Shueisha. Technique names, kanji and lore follow the original series
+  (verified against the Jujutsu Kaisen Wiki and official Japanese sources). Detection runs entirely in your browser via Roboflow inferencejs —
+  no images ever leave your device.
+</footer>
+<!-- MediaPipe Hands (skeleton overlay) -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<!-- Roboflow inferencejs -->
-<script src="https://cdn.roboflow.com/0.2.26/roboflow.js"></script>
+<!-- Roboflow inferencejs (in-browser WebGL inference) -->
+<script src="https://cdn.jsdelivr.net/npm/inferencejs@1.2.3/dist/inference.js"></script>
 <script>
-// ─── Sign database ────────────────────────────────────────────────────────────
+// ═══ Model config ═════════════════════════════════════════════════════════════
+const RF_MODEL    = 'jujutsu-kaisen-hand-signs';
+const RF_VERSION  = 1;
+// Publishable key (browser-safe by design: only authorizes the one-time model
+// weight download). Can be overridden by the optional /api/key Vercel function.
+const RF_FALLBACK_KEY = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
+const DETECT_INTERVAL_MS = 800;
+// Fixed detection trigger threshold (bias-adjusted score required to fire).
+const confThreshold = 0.30;
+// Feed horizontally-flipped frames to the model. The training images are
+// mirrored relative to the raw camera frame (real-camera testing showed all
+// signs detect better flipped), so this is always on.
+const MIRROR_INFERENCE = true;
+
+// ═══ Sign database — canon-accurate to the original series ════════════════════
+// Keys are the exact class labels of the Roboflow model.
+// Kanji / romaji / lore verified against the Jujutsu Kaisen Wiki + Japanese sources.
 const SIGNS = {
-  "Gojo-Domain-Expansion":   { kanji:"無量空処", color:"glow-blue",  desc:"Unlimited Void — Gojo Satoru's domain expansion. Floods the target's mind with infinite information.", char:"gojo" },
-  "Sukuna-Domain-Expansion": { kanji:"伏魔御廚子", color:"glow-red",   desc:"Malevolent Shrine — Ryomen Sukuna's domain expansion. A buddhist shrine that slashes everything within range.", char:"sukuna" },
-  "Divine-Dogs":             { kanji:"玉犬",   color:"glow-green", desc:"Ten Shadows Technique — Divine Dogs. Twin shikigami wolves that track and destroy cursed spirits.", char:"megumi" },
-  "Nue":                     { kanji:"鵺",    color:"glow-green", desc:"Ten Shadows Technique — Nue. A winged shikigami that attacks with lightning from above.", char:"megumi" },
-  "Gama":                    { kanji:"蝦蟇",   color:"glow-green", desc:"Ten Shadows Technique — Gama Toad. A toad shikigami that can restrain and swallow cursed spirits.", char:"megumi" },
+  "Gojo-Domain-Expansion": {
+    name: "Unlimited Void", kanji: "無量空処", romaji: "MURYŌKŪSHO",
+    tag: "DOMAIN EXPANSION · SATORU GOJO",
+    color: "glow-blue", char: "gojo", domain: true,
+    desc: "Domain Expansion of the Limitless: traps the target inside the concept of infinity, flooding their mind with endless information until they are left catatonic. The one-handed seal derives from Taishakuten (Indra). Debut: ch. 15 / S1 ep. 7 vs Jogo.",
+  },
+  "Sukuna-Domain-Expansion": {
+    name: "Malevolent Shrine", kanji: "伏魔御廚子", romaji: "FUKUMA MIZUSHI",
+    tag: "DOMAIN EXPANSION · RYOMEN SUKUNA",
+    color: "glow-red", char: "sukuna", domain: true,
+    desc: "A barrier-less Domain Expansion: a demonic shrine whose slashing techniques Dismantle (解) and Cleave (捌) strike everything in range, up to ~200 m. The two-handed seal derives from Enmaten (Yama). Debut: ch. 118–119, Shibuya Incident.",
+  },
+  "Divine-Dogs": {
+    name: "Divine Dogs", kanji: "玉犬", romaji: "GYOKUKEN",
+    tag: "TEN SHADOWS TECHNIQUE · MEGUMI FUSHIGURO",
+    color: "glow-green", char: "megumi",
+    desc: "Twin white and black wolf shikigami — the first summons of the Zenin clan's Ten Shadows Technique, called forth through a dog's-head shadow puppet. They hunt lower curses and track targets by scent.",
+  },
+  "Nue": {
+    name: "Nue", kanji: "鵺", romaji: "NUE",
+    tag: "TEN SHADOWS TECHNIQUE · MEGUMI FUSHIGURO",
+    color: "glow-green", char: "megumi",
+    desc: "A winged, owl-like shikigami named for the chimeric yōkai, summoned through a bird shadow puppet. It dive-bombs enemies and its wings discharge paralyzing electricity on contact.",
+  },
+  "Gama": {
+    name: "Toad", kanji: "蝦蟇", romaji: "GAMA",
+    tag: "TEN SHADOWS TECHNIQUE · MEGUMI FUSHIGURO",
+    color: "glow-green", char: "megumi",
+    desc: "A giant toad shikigami summoned through a toad shadow puppet. A support summon: it restrains enemies and rescues allies with its long tongue rather than fighting head-on.",
+  },
 };
+// Canon extension techniques (multi-sign combos).
+// Seiteishirazu is Megumi's own fusion of Toad + Nue — first used vs Aoi Todo
+// (Kyoto Goodwill Event): temporary winged toads woven from both shadows.
+const EXTENSIONS = [
+  {
+    id: "seiteishirazu",
+    name: "The Well's Unknown Abyss", kanji: "不知井底", romaji: "SEITEISHIRAZU",
+    recipe: ["Gama", "Nue"],
+    windowMs: 8000,
+    char: "megumi", color: "glow-green",
+    tag: "EXTENSION TECHNIQUE · MEGUMI FUSHIGURO",
+    desc: "Megumi's self-devised extension of the Ten Shadows Technique: weaving the shadows of Toad and Nue in succession creates temporary winged toads. Being ad-hoc fusions, they can be destroyed and re-summoned freely as long as both parent shikigami live.",
+  },
+];
 const CHAR_COLORS = {
   sukuna: ['#ff2244','#ff6644','#ffaa22'],
   gojo:   ['#00c8ff','#4488ff','#aaccff'],
   megumi: ['#22cc88','#44ddaa','#88ffcc'],
 };
-// ─── State ────────────────────────────────────────────────────────────────────
-const rfApiKey     = 'rf_1iyA3FyxihOOvXBl7RxVo2vi7hf2';
-let rfModel        = null;
+const CHAR_GLOW = {
+  gojo:   ['rgba(0,200,255,0.28)',  'rgba(0,200,255,0.6)'],
+  sukuna: ['rgba(255,34,68,0.28)',  'rgba(255,34,68,0.6)'],
+  megumi: ['rgba(34,204,136,0.28)', 'rgba(34,204,136,0.6)'],
+};
+const DOMAIN_HOLD_HITS = 3;      // consecutive detections (~800 ms apart) to expand a domain
+const DOMAIN_COOLDOWN_MS = 12000;
+const FUSION_COOLDOWN_MS = 10000;
+// Per-class confidence weighting to rebalance model bias: the trained model
+// over-predicts Gojo's seal and under-predicts Sukuna's, so Gojo needs more
+// raw confidence to win/trigger and Sukuna needs less. Applied to ranking and
+// threshold checks only — the displayed % stays raw.
+const CLASS_BIAS = {
+  'Gojo-Domain-Expansion':   0.80,
+  'Sukuna-Domain-Expansion': 1.45,
+  // keep the wolf boost modest — at 1.35 it stole single frames from the
+  // two-handed domain seals and kept breaking their hold streaks
+  'Divine-Dogs':             1.15,
+};
+
+// ═══ State ════════════════════════════════════════════════════════════════════
+const DEMO_MODE = new URLSearchParams(location.search).has('demo');
+let inferEngine    = null;
+let rfWorkerId     = null;
 let mediaStream    = null;
 let mpHands        = null;
-let mpCamera       = null;
 let cameraActive   = false;
 let modelReady     = false;
 let detecting      = false;
 let lastClass      = null;
 let detectionTimer = null;
-// ─── Init ─────────────────────────────────────────────────────────────────────
-buildSignsGrid();
+let lastDetBox     = null;   // {x,y,w,h,color,until} in video pixel coords
+let signHistory    = [];     // transitions: {cls, t}
+let domainStreak   = { cls: null, count: 0, misses: 0, wrong: 0 };
+let domainCooldowns = {};    // cls -> timestamp until which it can't re-trigger
+let fusionCooldownUntil = 0;
+let demoStep       = 0;
+// Hooks for automated testing (test/e2e.cjs)
+window.__jjk = { detections: 0, domains: 0, fusions: 0, dogs: 0 };
+
+// Optional: a Vercel serverless function can serve the key from an env var.
+const keyPromise = fetch('/api/key')
+  .then(r => (r.ok ? r.json() : null))
+  .then(d => (d && d.key) || null)
+  .catch(() => null);
+
+// ═══ Init ═════════════════════════════════════════════════════════════════════
+function kanjiSize(len, base, shrink, min) {
+  return Math.max(min, base - (len - 1) * shrink) + 'px';
+}
 function buildSignsGrid() {
   const grid = document.getElementById('signsGrid');
-  Object.entries(SIGNS).forEach(([name, d]) => {
+  Object.entries(SIGNS).forEach(([cls, d]) => {
     const chip = document.createElement('div');
     chip.className = 'sign-chip';
-    chip.id = 'chip-' + name;
-    chip.innerHTML = `<span class="chip-kanji">${d.kanji}</span><span class="chip-name">${name.toUpperCase()}</span>`;
+    chip.id = 'chip-' + cls;
+    chip.innerHTML =
+      `<span class="chip-kanji" style="font-size:${kanjiSize(d.kanji.length, 22, 3, 13)}">${d.kanji}</span>` +
+      `<span class="chip-name">${d.name.toUpperCase()}</span>` +
+      `<span class="chip-romaji">${d.romaji}</span>`;
     grid.appendChild(chip);
   });
 }
-// ─── Activate ─────────────────────────────────────────────────────────────────
+function buildComboPanels() {
+  const host = document.getElementById('comboPanels');
+  EXTENSIONS.forEach(ext => {
+    const steps = ext.recipe.map((cls, i) => {
+      const s = SIGNS[cls];
+      return (i ? '<div class="combo-glue">+</div>' : '') +
+        `<div class="combo-step" id="comboStep-${ext.id}-${cls}"><span>${s.kanji}</span><small>${s.name.toUpperCase()}</small></div>`;
+    }).join('');
+    const panel = document.createElement('div');
+    panel.className = 'combo-panel';
+    panel.id = 'comboPanel-' + ext.id;
+    panel.innerHTML =
+      `<div class="combo-head">${ext.tag} · ${ext.kanji}</div>` +
+      `<div class="combo-row">${steps}<div class="combo-glue">→</div>` +
+      `<div class="combo-result" id="comboResult-${ext.id}"><span>${ext.kanji}</span><small>${ext.name.toUpperCase()}</small></div></div>` +
+      `<div class="combo-desc">${ext.desc}</div>`;
+    host.appendChild(panel);
+  });
+}
+
+// ═══ Sound effects (WebAudio, synthesized — no assets) ════════════════════════
+let audioCtx = null;
+let soundOn = localStorage.getItem('jjkSound') !== 'off';
+function initSoundButton() {
+  document.getElementById('soundBtn').textContent = soundOn ? '🔊' : '🔇';
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  localStorage.setItem('jjkSound', soundOn ? 'on' : 'off');
+  initSoundButton();
+  if (soundOn) { ensureAudio(); tone({ freq: 660, dur: 0.12, vol: 0.1 }); }
+}
+function ensureAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function tone({ freq, type = 'sine', delay = 0, dur = 0.3, vol = 0.2, glideTo = null }) {
+  if (!soundOn || !audioCtx) return;
+  const t0 = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.05);
+}
+const SFX_BASE = { gojo: 740, sukuna: 200, megumi: 520 };
+function sfxDetect(char) {
+  ensureAudio();
+  const f = SFX_BASE[char] || 440;
+  tone({ freq: f, type: 'triangle', dur: 0.16, vol: 0.14 });
+  tone({ freq: f * 1.5, type: 'sine', delay: 0.07, dur: 0.22, vol: 0.1 });
+}
+function sfxDomain() {
+  ensureAudio();
+  tone({ freq: 48, type: 'sine', dur: 2.2, vol: 0.5, glideTo: 36 });
+  tone({ freq: 96, type: 'sine', delay: 0.05, dur: 1.6, vol: 0.25 });
+  tone({ freq: 1400, type: 'sawtooth', delay: 0.1, dur: 1.2, vol: 0.05, glideTo: 220 });
+}
+// Unlimited Void: wind rushing past that swells, then a sudden hard cut
+// into hollow silence — so quiet a single pin drop rings out.
+function sfxGojoVoid(durMs) {
+  ensureAudio();
+  if (!soundOn || !audioCtx) return;
+  const t0  = audioCtx.currentTime;
+  const dur = durMs / 1000;
+  const cut = dur * 0.55;
+  // the wind: filtered noise sweeping up, swelling toward the shift
+  const src = audioCtx.createBufferSource();
+  const len = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  src.buffer = buf;
+  src.loop = true;
+  const filt = audioCtx.createBiquadFilter();
+  filt.type = 'bandpass';
+  filt.Q.value = 0.9;
+  filt.frequency.setValueAtTime(280, t0);
+  filt.frequency.exponentialRampToValueAtTime(2600, t0 + cut);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.4);
+  g.gain.exponentialRampToValueAtTime(0.3, t0 + cut - 0.05);
+  // the sudden shift: wind vanishes in 60 ms
+  g.gain.linearRampToValueAtTime(0.0001, t0 + cut + 0.06);
+  src.connect(filt).connect(g).connect(audioCtx.destination);
+  src.start(t0);
+  src.stop(t0 + cut + 0.2);
+  // the pin drop, alone in the void — one delicate ping and its echo
+  tone({ freq: 3200, type: 'sine', delay: cut + 0.45, dur: 1.1, vol: 0.05 });
+  tone({ freq: 3200, type: 'sine', delay: cut + 0.85, dur: 0.9, vol: 0.018 });
+}
+function sfxFusion() {
+  ensureAudio();
+  [523, 784, 1046].forEach((f, i) =>
+    tone({ freq: f, type: 'triangle', delay: i * 0.09, dur: 0.35, vol: 0.13 }));
+  tone({ freq: 130, type: 'sine', delay: 0.05, dur: 0.7, vol: 0.2 });
+}
+
+// ═══ Activate / deactivate ════════════════════════════════════════════════════
 async function activate() {
   const btn  = document.getElementById('startBtn');
   const pill = document.getElementById('statusPill');
   btn.disabled = true;
   btn.textContent = 'INITIALIZING…';
+  ensureAudio();
+
+  if (DEMO_MODE) {
+    cameraActive = true;
+    modelReady = true;
+    demoStep = 0;
+    startDetectionLoop();
+    startParticles();
+    pill.className = 'status-pill active';
+    pill.textContent = 'DEMO MODE — SIMULATED SIGNS';
+    btn.disabled = false;
+    btn.textContent = 'DEACTIVATE';
+    btn.onclick = deactivate;
+    return;
+  }
+
   // 1. Start webcam
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user', width:640, height:480 }, audio:false });
-    document.getElementById('video').srcObject = mediaStream;
-    await document.getElementById('video').play();
-  } catch(e) {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+    const video = document.getElementById('video');
+    video.srcObject = mediaStream;
+    await video.play();
+  } catch (e) {
     pill.textContent = 'CAMERA ACCESS DENIED';
     btn.disabled = false;
     btn.textContent = 'ACTIVATE CURSED VISION';
     return;
   }
   cameraActive = true;
-  // 2. Load Roboflow model via inferencejs
+
+  // 2. Load Roboflow model via inferencejs (runs fully in-browser via WebGL;
+  //    the publishable key is only used to download the weights once)
   pill.className = 'status-pill loading';
   pill.textContent = 'LOADING MODEL…';
   document.getElementById('loadBar').classList.add('show');
-  // Animate load bar (inferencejs doesn't give progress events, so fake a smooth fill)
   let fakeProgress = 0;
   const fakeInterval = setInterval(() => {
     fakeProgress = Math.min(fakeProgress + Math.random() * 8, 90);
     document.getElementById('loadFill').style.width = fakeProgress + '%';
   }, 300);
   try {
-    rfModel = await new Promise((resolve, reject) => {
-      roboflow.auth({ publishable_key: rfApiKey })
-        .load({
-          model: 'jujutsu-kaisen-hand-signs',
-          version: 1,
-          onLoadComplete: resolve,
-        })
-        .catch(reject);
-    });
-  } catch(e) {
+    if (!window.inferencejs) throw new Error('inferencejs failed to load from CDN — check your network');
+    const { InferenceEngine } = window.inferencejs;
+    const remoteKey = await keyPromise;
+    inferEngine = new InferenceEngine();
+    rfWorkerId = await inferEngine.startWorker(RF_MODEL, RF_VERSION, remoteKey || RF_FALLBACK_KEY);
+  } catch (e) {
     clearInterval(fakeInterval);
     pill.textContent = 'MODEL LOAD FAILED';
     pill.className = 'status-pill';
     document.getElementById('loadBar').classList.remove('show');
+    stopCamera();
     btn.disabled = false;
     btn.textContent = 'ACTIVATE CURSED VISION';
     console.error('inferencejs load error:', e);
@@ -429,9 +822,9 @@ async function activate() {
   document.getElementById('loadFill').style.width = '100%';
   setTimeout(() => document.getElementById('loadBar').classList.remove('show'), 600);
   modelReady = true;
-  // 3. Start MediaPipe hand tracking
+
+  // 3. Hand-skeleton overlay + detection loop + FX
   setupMediaPipe();
-  // 4. Start detection loop
   startDetectionLoop();
   startParticles();
   pill.className = 'status-pill active';
@@ -440,22 +833,41 @@ async function activate() {
   btn.textContent = 'DEACTIVATE';
   btn.onclick = deactivate;
 }
+
+function stopCamera() {
+  cameraActive = false;
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+}
+
 function deactivate() {
   cameraActive = false;
   modelReady   = false;
+  // stopWorker can leave an in-flight infer() promise unsettled — reset the
+  // flag here or detection would be dead on the next activation
+  detecting    = false;
   if (detectionTimer) clearTimeout(detectionTimer);
-  if (mpCamera) mpCamera.stop();
-  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-  rfModel = null;
+  stopCamera();
+  if (rfWorkerId && inferEngine) { inferEngine.stopWorker(rfWorkerId).catch(() => {}); }
+  rfWorkerId = null;
+  inferEngine = null;
+  if (mpHands) { try { mpHands.close(); } catch (e) {} mpHands = null; }
   lastClass = null;
+  signHistory = [];
+  domainStreak = { cls: null, count: 0, misses: 0 };
+  hideDomainCharge();
   document.getElementById('statusPill').className = 'status-pill';
   document.getElementById('statusPill').textContent = 'INACTIVE';
   document.getElementById('startBtn').textContent = 'ACTIVATE CURSED VISION';
   document.getElementById('startBtn').onclick = activate;
   showIdle();
 }
-// ─── MediaPipe hand landmarks ──────────────────────────────────────────────────
+
+// ═══ MediaPipe hand landmarks (visual overlay only) ═══════════════════════════
 function setupMediaPipe() {
+  if (typeof Hands === 'undefined') {
+    console.warn('MediaPipe Hands unavailable — skipping skeleton overlay');
+    return;
+  }
   const video  = document.getElementById('video');
   const canvas = document.getElementById('landmarks');
   const ctx    = canvas.getContext('2d');
@@ -465,30 +877,35 @@ function setupMediaPipe() {
     [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]
   ];
   mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-  mpHands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.7, minTrackingConfidence:0.5 });
+  // Most JJK seals are two-handed (Sukuna's Enmaten seal, the shadow puppets) —
+  // track both hands.
+  mpHands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
   mpHands.onResults(results => {
     canvas.width  = video.videoWidth  || 640;
     canvas.height = video.videoHeight || 480;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawDetBox(ctx);
     const pill = document.getElementById('statusPill');
-    if (results.multiHandLandmarks?.length) {
-      drawLandmarks(ctx, results.multiHandLandmarks[0], canvas.width, canvas.height, CONNECTIONS);
-      if (modelReady) {
+    const hands = results.multiHandLandmarks || [];
+    if (hands.length) {
+      hands.forEach(lm => drawLandmarks(ctx, lm, canvas.width, canvas.height, CONNECTIONS));
+      if (modelReady && !pill.textContent.startsWith('SIGN')) {
         pill.className   = 'status-pill detected';
-        pill.textContent = 'HAND DETECTED';
+        pill.textContent = hands.length === 2 ? 'BOTH HANDS DETECTED' : 'HAND DETECTED';
       }
-    } else {
-      if (modelReady) {
-        pill.className   = 'status-pill active';
-        pill.textContent = 'ACTIVE — SCANNING';
-      }
+    } else if (modelReady) {
+      pill.className   = 'status-pill active';
+      pill.textContent = 'ACTIVE — SCANNING';
     }
   });
-  mpCamera = new Camera(video, {
-    onFrame: async () => { if (mpHands && cameraActive) await mpHands.send({ image: video }); },
-    width: 640, height: 480
-  });
-  mpCamera.start();
+  pumpMediaPipe(video);
+}
+async function pumpMediaPipe(video) {
+  if (!cameraActive || !mpHands) return;
+  if (video.readyState >= 2) {
+    try { await mpHands.send({ image: video }); } catch (e) {}
+  }
+  requestAnimationFrame(() => pumpMediaPipe(video));
 }
 function drawLandmarks(ctx, landmarks, w, h, connections) {
   ctx.strokeStyle = 'rgba(212,160,23,0.55)';
@@ -507,14 +924,31 @@ function drawLandmarks(ctx, landmarks, w, h, connections) {
     ctx.fill();
   });
 }
-// ─── inferencejs detection loop ───────────────────────────────────────────────
+// Bounding box of the last Roboflow detection (bbox x/y = box CENTER).
+// Shapes only — no text, since this canvas is CSS-mirrored.
+function drawDetBox(ctx) {
+  if (!lastDetBox || performance.now() > lastDetBox.until) return;
+  const { x, y, w, h, color } = lastDetBox;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 5]);
+  ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+  ctx.setLineDash([]);
+}
+
+// ═══ Detection loop (inferencejs) ═════════════════════════════════════════════
 function startDetectionLoop() {
   if (!cameraActive || !modelReady) return;
   runDetection();
 }
 async function runDetection() {
   if (!cameraActive || !modelReady || detecting) {
-    if (cameraActive) detectionTimer = setTimeout(runDetection, 800);
+    if (cameraActive) detectionTimer = setTimeout(runDetection, DETECT_INTERVAL_MS);
+    return;
+  }
+  if (DEMO_MODE) {
+    handlePredictions(nextDemoPredictions());
+    detectionTimer = setTimeout(runDetection, DETECT_INTERVAL_MS);
     return;
   }
   const video = document.getElementById('video');
@@ -524,68 +958,427 @@ async function runDetection() {
   }
   detecting = true;
   try {
-    // inferencejs .detect() accepts an HTMLVideoElement directly
-    const predictions = await rfModel.detect(video);
-    handlePredictions(predictions);
-  } catch(e) {
+    const predictions = await inferEngine.infer(rfWorkerId, await inferInput(video));
+    if (cameraActive) handlePredictions(predictions);
+  } catch (e) {
     console.warn('Detection error:', e);
   }
   detecting = false;
-  if (cameraActive) detectionTimer = setTimeout(runDetection, 800);
+  if (cameraActive) detectionTimer = setTimeout(runDetection, DETECT_INTERVAL_MS);
+}
+
+let emptyStreak = 0;
+let flipCanvas = null, flipCtx = null;
+async function inferInput(video) {
+  const { CVImage } = window.inferencejs;
+  if (!MIRROR_INFERENCE) return new CVImage(video);
+  if (!flipCanvas) {
+    flipCanvas = document.createElement('canvas');
+    flipCtx = flipCanvas.getContext('2d');
+  }
+  flipCanvas.width  = video.videoWidth  || 640;
+  flipCanvas.height = video.videoHeight || 480;
+  flipCtx.save();
+  flipCtx.scale(-1, 1);
+  flipCtx.drawImage(video, -flipCanvas.width, 0);
+  flipCtx.restore();
+  return await createImageBitmap(flipCanvas);
 }
 function handlePredictions(predictions) {
+  updateComboUI();
   if (!predictions || predictions.length === 0) {
     document.getElementById('confStrip').classList.remove('show');
+    // brief grace before breaking a domain hold, so one dropped frame doesn't reset it
+    if (domainStreak.cls && ++domainStreak.misses > 1) resetDomainStreak();
+    // after the hand has clearly left frame, allow the same sign to re-fire
+    if (++emptyStreak >= 2) lastClass = null;
     return;
   }
-  const best       = predictions.sort((a, b) => b.confidence - a.confidence)[0];
+  emptyStreak = 0;
+  const scored = predictions
+    .map(p => {
+      const cls = resolveClass(p.class);
+      return { p, cls, score: p.confidence * (CLASS_BIAS[cls] || 1) };
+    })
+    .sort((a, b) => b.score - a.score);
+  const best       = scored[0].p;
+  const className  = scored[0].cls;
   const confidence = Math.round(best.confidence * 100);
-  const className  = best.class;
-  // Confidence bar
+  // Always surface the model's best guess — even below the trigger threshold —
+  // so weak/borderline signs are visible while tuning sensitivity. Show the
+  // runner-up too: useful when two seals are being confused.
+  const dispName = k => (SIGNS[k] ? SIGNS[k].name : k).toUpperCase();
+  let label = 'RESONANCE · ' + dispName(className);
+  if (scored[1]) label += ` (ALT ${dispName(scored[1].cls)} ${Math.round(scored[1].p.confidence * 100)}%)`;
+  document.getElementById('confLabelName').textContent = label;
   document.getElementById('confStrip').classList.add('show');
   document.getElementById('confFill').style.width = confidence + '%';
   document.getElementById('confPct').textContent  = confidence + '%';
-  if (className !== lastClass && confidence >= 50) {
+  if (scored[0].score < confThreshold) return;
+  if (best.bbox) {
+    const vw = document.getElementById('video').videoWidth || 640;
+    lastDetBox = {
+      // when inference ran on a flipped frame, mirror the box back into video space
+      x: MIRROR_INFERENCE ? vw - best.bbox.x : best.bbox.x,
+      y: best.bbox.y, w: best.bbox.width, h: best.bbox.height,
+      color: best.color || '#d4a017',
+      until: performance.now() + DETECT_INTERVAL_MS * 1.5,
+    };
+  }
+  window.__jjk.detections++;
+  if (className !== lastClass) {
     lastClass = className;
     showDetection(className, confidence);
     highlightChip(className);
     const sign = SIGNS[className];
-    triggerBurst(sign ? sign.char : 'sukuna');
+    triggerBurst(sign ? sign.char : 'sukuna', 44);
+    sfxDetect(sign ? sign.char : 'sukuna');
+    if (className === 'Divine-Dogs') dogStrike();
+    recordSign(className);
+  }
+  trackDomainHold(className);
+}
+// Map the model's raw labels onto our sign keys. The trained dataset uses
+// short lowercase labels (wolf / gojo / sukuna / toad / nue — per the
+// Roboflow Universe class list), while this app keys signs by technique;
+// normalized spellings of our own keys are also accepted.
+const CLASS_ALIASES = {
+  gojo:   'Gojo-Domain-Expansion',
+  sukuna: 'Sukuna-Domain-Expansion',
+  wolf:   'Divine-Dogs',
+  dog:    'Divine-Dogs',
+  toad:   'Gama',
+  frog:   'Gama',
+};
+const NORM_LOOKUP = Object.fromEntries(
+  Object.keys(SIGNS).map(k => [k.toLowerCase().replace(/[^a-z0-9]/g, ''), k]));
+function resolveClass(raw) {
+  if (!raw) return raw;
+  if (SIGNS[raw]) return raw;
+  const norm = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return NORM_LOOKUP[norm] || CLASS_ALIASES[norm] || raw;
+}
+
+// ═══ Sequence engine — canon extension techniques ═════════════════════════════
+function recordSign(cls) {
+  const t = performance.now();
+  signHistory.push({ cls, t });
+  if (signHistory.length > 12) signHistory.shift();
+  checkExtensions(cls, t);
+}
+function checkExtensions(justCast, now) {
+  if (now < fusionCooldownUntil) return;
+  for (const ext of EXTENSIONS) {
+    if (!ext.recipe.includes(justCast)) continue;
+    const others = ext.recipe.filter(c => c !== justCast);
+    const ok = others.every(c =>
+      signHistory.some(h => h.cls === c && now - h.t < ext.windowMs));
+    if (ok) {
+      fusionCooldownUntil = now + FUSION_COOLDOWN_MS;
+      signHistory = [];
+      triggerFusion(ext);
+    }
   }
 }
-// ─── UI helpers ───────────────────────────────────────────────────────────────
+function updateComboUI() {
+  const now = performance.now();
+  EXTENSIONS.forEach(ext => {
+    ext.recipe.forEach(cls => {
+      const el = document.getElementById(`comboStep-${ext.id}-${cls}`);
+      if (!el) return;
+      const fresh = signHistory.some(h => h.cls === cls && now - h.t < ext.windowMs);
+      el.classList.toggle('lit', fresh);
+    });
+  });
+}
+function triggerFusion(ext) {
+  window.__jjk.fusions++;
+  const panel = document.getElementById('comboPanel-' + ext.id);
+  const result = document.getElementById('comboResult-' + ext.id);
+  panel.classList.add('triggered');
+  result.classList.add('lit');
+  ext.recipe.forEach(cls => {
+    const el = document.getElementById(`comboStep-${ext.id}-${cls}`);
+    if (el) el.classList.add('lit');
+  });
+  setTimeout(() => {
+    panel.classList.remove('triggered');
+    result.classList.remove('lit');
+  }, 5000);
+  showCard({
+    kanji: ext.kanji, name: ext.name, romaji: ext.romaji,
+    tag: ext.tag, desc: ext.desc, color: ext.color,
+  });
+  triggerBurst(ext.char, 90);
+  sfxFusion();
+  const pill = document.getElementById('statusPill');
+  pill.className = 'status-pill detected';
+  pill.textContent = 'EXTENSION TECHNIQUE — ' + ext.name.toUpperCase();
+}
+
+// ═══ Domain Expansion — hold the seal to expand ═══════════════════════════════
+function trackDomainHold(cls) {
+  const sign = SIGNS[cls];
+  const isDomain = !!(sign && sign.domain);
+  if (domainStreak.cls) {
+    if (cls === domainStreak.cls) {
+      domainStreak.count++;
+      domainStreak.wrong = 0;
+    } else if (++domainStreak.wrong > 1) {
+      // two stray frames in a row — the hold is genuinely broken
+      if (isDomain) domainStreak = { cls, count: 1, misses: 0, wrong: 0 };
+      else { resetDomainStreak(); return; }
+    } else {
+      // grace: a single misread frame pauses the charge instead of
+      // resetting it — model flicker was making domains near-impossible
+      return;
+    }
+  } else if (isDomain) {
+    domainStreak = { cls, count: 1, misses: 0, wrong: 0 };
+  } else {
+    return;
+  }
+  domainStreak.misses = 0;
+  const held = domainStreak.cls;
+  const now = performance.now();
+  if (now < (domainCooldowns[held] || 0)) { hideDomainCharge(); return; }
+  showDomainCharge(domainStreak.count / DOMAIN_HOLD_HITS, held);
+  if (domainStreak.count >= DOMAIN_HOLD_HITS) {
+    domainCooldowns[held] = now + DOMAIN_COOLDOWN_MS;
+    resetDomainStreak();
+    expandDomain(held);
+  }
+}
+function resetDomainStreak() {
+  domainStreak = { cls: null, count: 0, misses: 0, wrong: 0 };
+  hideDomainCharge();
+}
+const CHAR_HEX = { gojo: 'rgba(0,200,255,0.85)', sukuna: 'rgba(255,34,68,0.85)', megumi: 'rgba(34,204,136,0.85)' };
+function showDomainCharge(frac, cls) {
+  const sign = SIGNS[cls];
+  const charge = document.getElementById('domainCharge');
+  const frame = document.getElementById('cameraFrame');
+  const color = CHAR_HEX[sign.char] || CHAR_HEX.sukuna;
+  charge.style.setProperty('--charge-color', color);
+  frame.style.setProperty('--charge-color', color);
+  document.getElementById('domainChargeLabel').textContent =
+    '領域展開 — CHANNELING ' + sign.name.toUpperCase();
+  charge.classList.add('show');
+  frame.classList.add('channeling');
+  document.getElementById('domainChargeFill').style.width = Math.min(100, frac * 100) + '%';
+}
+function hideDomainCharge() {
+  document.getElementById('domainCharge').classList.remove('show');
+  document.getElementById('cameraFrame').classList.remove('channeling');
+  document.getElementById('domainChargeFill').style.width = '0%';
+}
+function expandDomain(cls) {
+  const sign = SIGNS[cls];
+  window.__jjk.domains++;
+  const overlay = document.getElementById('domainOverlay');
+  const [bgGlow, textGlow] = CHAR_GLOW[sign.char] || CHAR_GLOW.sukuna;
+  overlay.style.setProperty('--domain-glow', bgGlow);
+  overlay.style.setProperty('--domain-text-glow', textGlow);
+  document.getElementById('domainKanji').textContent  = sign.kanji;
+  document.getElementById('domainName').textContent   = sign.name.toUpperCase();
+  document.getElementById('domainName').style.color   =
+    sign.char === 'gojo' ? 'var(--gojo-blue)' : sign.char === 'megumi' ? 'var(--megumi-green)' : 'var(--sukuna-red)';
+  document.getElementById('domainRomaji').textContent = sign.romaji;
+  overlay.classList.add('show');
+  // Immersive per-domain backdrop: Gojo's Unlimited Void gets the
+  // space-leap warp with its own wind-to-silence sound.
+  const duration = sign.char === 'gojo' ? 4200 : 4000;
+  if (sign.char === 'gojo') { startVoidWarp(duration + 400); sfxGojoVoid(duration + 400); }
+  else { stopVoidWarp(); sfxDomain(); }
+  triggerBurst(sign.char, 140);
+  // token guards against an earlier domain's hide-timer cutting this one short
+  const my = ++domainShowToken;
+  setTimeout(() => { if (my === domainShowToken) overlay.classList.remove('show'); }, duration);
+}
+let domainShowToken = 0;
+
+// ═══ Unlimited Void warp — infinite space-leap backdrop (canvas, no assets) ═══
+let voidRaf = null;
+function stopVoidWarp() {
+  if (voidRaf) cancelAnimationFrame(voidRaf);
+  voidRaf = null;
+  const c = document.getElementById('domainFx');
+  c.getContext('2d').clearRect(0, 0, c.width, c.height);
+}
+function startVoidWarp(durationMs) {
+  const canvas = document.getElementById('domainFx');
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const maxR = Math.max(cx, cy);
+  const spawn = () => ({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: 0.1 + Math.random() * 0.9 });
+  const stars = Array.from({ length: 340 }, spawn);
+  const t0 = performance.now();
+  if (voidRaf) cancelAnimationFrame(voidRaf);
+  (function frame(now) {
+    // clamp: the first rAF timestamp can precede the t0 captured above,
+    // and a negative t makes Math.pow(p, 2.1) NaN → gradient throws →
+    // the whole animation freezes on its first frame
+    const t = Math.max(0, now - t0);
+    if (t > durationMs || !document.getElementById('domainOverlay').classList.contains('show')) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      voidRaf = null;
+      return;
+    }
+    try {
+    // Deep void: near-black indigo core bleeding into Gojo blue/violet edges
+    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.25);
+    bg.addColorStop(0,   '#02030f');
+    bg.addColorStop(0.6, '#060b2a');
+    bg.addColorStop(1,   '#12063a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // The end of the tunnel: a small white light that grows and grows
+    // until it almost engulfs the whole screen — drawn after the stars
+    // below, see the bottom of this frame callback.
+    // Star warp: accelerate from drift into full leap over the first ~1.5 s
+    const speed = 0.006 + Math.min(1, t / 1500) * 0.045;
+    for (const s of stars) {
+      const pz = s.z;
+      s.z -= speed;
+      if (s.z <= 0.03) { Object.assign(s, spawn()); s.z = 1; continue; }
+      const sx = cx + (s.x / s.z) * maxR * 0.95;
+      const sy = cy + (s.y / s.z) * maxR * 0.95;
+      const px = cx + (s.x / pz) * maxR * 0.95;
+      const py = cy + (s.y / pz) * maxR * 0.95;
+      const a = Math.min(1, (1 - s.z) * 1.3);
+      ctx.strokeStyle = `rgba(190,235,255,${a.toFixed(3)})`;
+      ctx.lineWidth = Math.max(0.5, (1 - s.z) * 2.6);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+    }
+    // The white light at the tunnel's end — starts as a pinpoint, swells
+    // faster and faster, and almost engulfs the screen by the end
+    const p = Math.min(1, t / durationMs);
+    // same starting pace as before (p^1.85), plus an exponential kicker
+    // that takes over as the circle grows — the bigger it gets, the
+    // faster it swells, fully engulfing the screen around ~83% through
+    const rimR = 8 + Math.hypot(cx, cy) * (Math.pow(p, 1.85) + 0.8 * Math.pow(p, 5));
+    const light = ctx.createRadialGradient(cx, cy, 0, cx, cy, rimR);
+    light.addColorStop(0,    'rgba(255,255,255,1)');
+    light.addColorStop(0.8,  'rgba(255,255,255,0.96)');
+    light.addColorStop(1,    'rgba(255,255,255,0)');
+    ctx.fillStyle = light;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rimR, 0, Math.PI * 2);
+    ctx.fill();
+    } catch (e) {
+      // never let a drawing error freeze the cinematic silently
+      console.error('void warp frame error:', e);
+      stopVoidWarp();
+      return;
+    }
+    voidRaf = requestAnimationFrame(frame);
+  })(t0);
+}
+
+// ═══ Divine Dogs strike — play the summon clip over the page ═════════════════
+let dogCooldownUntil = 0;
+function dogStrike() {
+  const now = performance.now();
+  if (now < dogCooldownUntil) return;
+  dogCooldownUntil = now + 8000;
+  window.__jjk.dogs++;
+  const wrap = document.getElementById('dogStrike');
+  const vid  = document.getElementById('dogVideo');
+  const done = () => wrap.classList.remove('play');
+  wrap.classList.add('play');
+  vid.currentTime = 0;
+  // play the clip's own audio (it's the drama) unless the app is muted;
+  // activation required a click, so unmuted playback is allowed
+  vid.muted = !soundOn;
+  vid.volume = 1;
+  vid.addEventListener('ended', done, { once: true });
+  vid.play().catch(() => {
+    // some browsers may still veto audible autoplay — retry muted so the
+    // visual always lands
+    vid.muted = true;
+    vid.play().catch(err => { console.warn('divine dog clip failed to play:', err); done(); });
+  });
+  // never leave the overlay stuck if 'ended' doesn't fire
+  setTimeout(done, 10000);
+}
+
+// ═══ UI helpers ═══════════════════════════════════════════════════════════════
 function showDetection(className, confidence) {
-  const sign  = SIGNS[className] || { kanji: className[0] || '印', color:'glow-red', desc:`${className} sign detected.`, char:'sukuna' };
-  const card  = document.getElementById('resultCard');
-  const idle  = document.getElementById('idleMsg');
+  const sign = SIGNS[className] || {
+    kanji: '印', name: className, romaji: '',
+    tag: 'UNREGISTERED SIGN', desc: `"${className}" detected (${confidence}%) — not in the local sign database.`,
+    color: 'glow-red',
+  };
+  showCard(sign);
+}
+function showCard(sign) {
+  const card    = document.getElementById('resultCard');
+  const idle    = document.getElementById('idleMsg');
   const content = document.getElementById('resultContent');
   idle.style.display    = 'none';
   content.style.display = 'flex';
-  document.getElementById('signKanji').textContent = sign.kanji;
-  document.getElementById('signName').textContent  = className.toUpperCase();
-  document.getElementById('signDesc').textContent  = sign.desc;
+  const kanjiEl = document.getElementById('signKanji');
+  kanjiEl.textContent = sign.kanji;
+  kanjiEl.style.fontSize = kanjiSize(sign.kanji.length, 56, 9, 20);
+  document.getElementById('signTag').textContent    = sign.tag || 'CURSED SIGN DETECTED';
+  document.getElementById('signName').textContent   = sign.name.toUpperCase();
+  document.getElementById('signRomaji').textContent = sign.romaji || '';
+  document.getElementById('signDesc').textContent   = sign.desc;
   card.className = 'result-card active ' + sign.color;
   void card.offsetWidth;
   card.classList.add('flash');
   card.addEventListener('animationend', () => card.classList.remove('flash'), { once: true });
 }
 function showIdle() {
-  document.getElementById('idleMsg').style.display    = 'flex';
+  document.getElementById('idleMsg').style.display       = 'flex';
   document.getElementById('resultContent').style.display = 'none';
-  document.getElementById('resultCard').className     = 'result-card';
+  document.getElementById('resultCard').className        = 'result-card';
   document.getElementById('confStrip').classList.remove('show');
   lastClass = null;
+  lastDetBox = null;
 }
 function highlightChip(name) {
+  // deliberately no auto-scroll on detection — it yanked the camera
+  // (and the user's face) out of view
   document.querySelectorAll('.sign-chip').forEach(c => c.classList.remove('lit'));
   const chip = document.getElementById('chip-' + name);
-  if (chip) { chip.classList.add('lit'); chip.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+  if (chip) chip.classList.add('lit');
 }
-// ─── Particle system ──────────────────────────────────────────────────────────
+
+// ═══ Demo mode — simulated predictions to preview every effect ════════════════
+const DEMO_SCRIPT = [
+  'Divine-Dogs', 'Divine-Dogs', null,
+  'Gama', 'Gama', 'Nue', null,
+  'Gojo-Domain-Expansion', 'Gojo-Domain-Expansion', 'Gojo-Domain-Expansion', 'Gojo-Domain-Expansion',
+  null, null,
+  'Sukuna-Domain-Expansion', 'Sukuna-Domain-Expansion', 'Sukuna-Domain-Expansion', 'Sukuna-Domain-Expansion',
+  null, null, null,
+];
+function nextDemoPredictions() {
+  const cls = DEMO_SCRIPT[demoStep % DEMO_SCRIPT.length];
+  demoStep++;
+  if (!cls) return [];
+  return [{
+    class: cls,
+    confidence: 0.82 + Math.random() * 0.16,
+    bbox: { x: 320, y: 240, width: 220, height: 200 },
+    color: '#d4a017',
+  }];
+}
+
+// ═══ Particle system ══════════════════════════════════════════════════════════
 const pCanvas = document.getElementById('particles');
 const pCtx    = pCanvas.getContext('2d');
 let   particles = [];
+let   particlesRunning = false;
 function startParticles() {
+  if (particlesRunning) return;
+  particlesRunning = true;
   pCanvas.width  = window.innerWidth;
   pCanvas.height = window.innerHeight;
   window.addEventListener('resize', () => {
@@ -594,10 +1387,11 @@ function startParticles() {
   });
   requestAnimationFrame(animParticles);
 }
-function triggerBurst(char) {
+function triggerBurst(char, count) {
   const colors = CHAR_COLORS[char] || CHAR_COLORS.sukuna;
-  for (let i = 0; i < 44; i++) {
-    const angle = (Math.PI * 2 * i / 44) + Math.random() * 0.2;
+  const n = count || 44;
+  for (let i = 0; i < n; i++) {
+    const angle = (Math.PI * 2 * i / n) + Math.random() * 0.2;
     const speed = 1.5 + Math.random() * 4;
     particles.push({
       x: window.innerWidth / 2, y: window.innerHeight / 2,
@@ -615,13 +1409,13 @@ function animParticles() {
     p.x += p.vx; p.y += p.vy;
     p.vx *= 0.97; p.vy *= 0.97;
     p.life -= p.decay;
+    if (p.life <= 0) return;
     pCtx.beginPath();
-    pCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    pCtx.arc(p.x, p.y, Math.max(0.1, p.size * p.life), 0, Math.PI * 2);
     const alpha = Math.floor(p.life * 255).toString(16).padStart(2, '0');
     pCtx.fillStyle = p.color + alpha;
     pCtx.fill();
   });
-  // Ambient rising sparks when camera is on
   if (cameraActive && Math.random() < 0.12) {
     particles.push({
       x: Math.random() * window.innerWidth,
@@ -635,6 +1429,26 @@ function animParticles() {
   }
   requestAnimationFrame(animParticles);
 }
+
+// ═══ Startup (last — after every let/const above is initialized) ══════════════
+buildSignsGrid();
+buildComboPanels();
+initSoundButton();
 </script>
+<!-- Divine Dogs strike clip (black background, screen-blended) -->
+<div class="dog-strike" id="dogStrike" aria-hidden="true">
+  <video id="dogVideo" src="assets/divine-dog.mp4" playsinline preload="auto"></video>
+</div>
+<!-- Domain Expansion cinematic overlay -->
+<div class="domain-overlay" id="domainOverlay">
+  <canvas id="domainFx"></canvas>
+  <div class="domain-inner">
+    <div class="domain-ritual">領域展開</div>
+    <div class="domain-ritual-en">DOMAIN EXPANSION</div>
+    <div class="domain-kanji" id="domainKanji"></div>
+    <div class="domain-name" id="domainName"></div>
+    <div class="domain-romaji" id="domainRomaji"></div>
+  </div>
+</div>
 </body>
 </html>
